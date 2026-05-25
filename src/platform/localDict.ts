@@ -107,6 +107,8 @@ export interface LocalDictResult {
   translations: Translation[];
   exchange?: string;
   tag?: string;
+  bnc?: number;
+  frq?: number;
 }
 
 /**
@@ -140,7 +142,7 @@ function parseTranslation(raw: string): Translation[] {
 export function lookupSync(word: string): LocalDictResult | null {
   if (!_db) return null;
   const stmt = _db.prepare(
-    'SELECT word, phonetic, translation, exchange, tag FROM dict WHERE word = ? COLLATE NOCASE LIMIT 1',
+    'SELECT word, phonetic, translation, exchange, tag, bnc, frq FROM dict WHERE word = ? COLLATE NOCASE LIMIT 1',
   );
   try {
     stmt.bind([word.toLowerCase()]);
@@ -151,6 +153,8 @@ export function lookupSync(word: string): LocalDictResult | null {
         translation: string | null;
         exchange: string | null;
         tag: string | null;
+        bnc: number | null;
+        frq: number | null;
       };
       return {
         word: row.word,
@@ -162,6 +166,8 @@ export function lookupSync(word: string): LocalDictResult | null {
         translations: row.translation ? parseTranslation(row.translation) : [],
         exchange: row.exchange ?? undefined,
         tag: row.tag ?? undefined,
+        bnc: row.bnc != null && row.bnc > 0 ? row.bnc : undefined,
+        frq: row.frq != null && row.frq > 0 ? row.frq : undefined,
       };
     }
     return null;

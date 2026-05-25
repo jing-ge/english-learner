@@ -80,7 +80,7 @@ async function loadCurrentWord() {
 }
 
 async function enrichWord(w: WordRecord) {
-  // 1) 本地 ECDICT：优先填中文释义/音标。命中后大概率不再需要走在线，省 5xx/限流。
+  // 1) 本地 ECDICT：优先填中文释义/音标 + 元数据（tag/bnc/frq）。命中后大概率不再需要走在线，省 5xx/限流。
   try {
     const local = await lookupLocalDict(w.word);
     if (local) {
@@ -88,6 +88,9 @@ async function enrichWord(w: WordRecord) {
         phonetic: local.phonetic,
         translations: local.translations.length ? local.translations : undefined,
         exchange: local.exchange,
+        tag: local.tag,
+        bnc: local.bnc,
+        frq: local.frq,
       });
     }
   } catch {

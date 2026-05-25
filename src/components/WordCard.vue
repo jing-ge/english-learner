@@ -6,6 +6,7 @@ import { playAudio } from '@/platform/audioCache';
 import { useSettingsStore } from '@/stores/settings';
 import { highlightSentence } from '@/domain/text/highlight';
 import { parseExchange, morphLabels, lookupRoots } from '@/platform/morpho';
+import { parseTagBadges, freqBucket } from '@/platform/wordMeta';
 import type { WordRecord } from '@/data/types';
 import type { Grade } from '@/domain/types';
 
@@ -28,6 +29,8 @@ const collocations = computed(() => props.word.collocations ?? []);
 
 const morphForms = computed(() => morphLabels(parseExchange(props.word.exchange)));
 const roots = computed(() => lookupRoots(props.word.word));
+const tagBadges = computed(() => parseTagBadges(props.word.tag));
+const freqBadge = computed(() => freqBucket(props.word.bnc, props.word.frq));
 
 const highlightedExamples = computed(() =>
   examples.value.map((ex) => ({
@@ -159,6 +162,22 @@ const swipeHint = computed<'left' | 'right' | null>(() => {
           </button>
         </div>
         <div v-if="phonetic" class="phonetic phonetic-sm">{{ phonetic }}</div>
+
+        <div
+          v-if="tagBadges.length || freqBadge"
+          class="meta-badges"
+        >
+          <span
+            v-if="freqBadge"
+            class="badge badge-freq"
+            :class="`badge-freq-${freqBadge.level}`"
+          >{{ freqBadge.label }}</span>
+          <span
+            v-for="b in tagBadges"
+            :key="b.code"
+            class="badge badge-tag"
+          >{{ b.label }}</span>
+        </div>
 
         <ul class="translations">
           <li v-for="(t, i) in translations" :key="i">
@@ -368,7 +387,7 @@ const swipeHint = computed<'left' | 'right' | null>(() => {
   font-size: 13px;
   color: var(--el-text-tertiary);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  margin-bottom: var(--el-space-3);
+  margin-bottom: var(--el-space-2);
 }
 
 .speak {
@@ -390,6 +409,42 @@ const swipeHint = computed<'left' | 'right' | null>(() => {
   list-style: none;
   padding: 0;
   margin: 0 0 var(--el-space-5) 0;
+}
+.meta-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 var(--el-space-4);
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.badge-tag {
+  color: var(--el-text-secondary);
+  background: var(--el-bg-soft);
+  border: 1px solid var(--el-border-light);
+}
+.badge-freq-high {
+  color: #b91c1c;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+}
+.badge-freq-mid {
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+}
+.badge-freq-low {
+  color: var(--el-text-tertiary);
+  background: var(--el-bg-soft);
+  border: 1px solid var(--el-border-light);
 }
 .translations li {
   padding: 6px 0;

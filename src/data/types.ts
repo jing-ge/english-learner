@@ -28,6 +28,12 @@ export interface WordRecord {
   audioUrl?: string;
   /** ECDICT exchange 字段：形态学变化（"p:ran/d:run/i:running/3:runs"），由 platform/morpho.ts 解析 */
   exchange?: string;
+  /** ECDICT tag 字段：空格分隔的等级标签，如 "zk gk cet4 cet6 ky ielts toefl gre" */
+  tag?: string;
+  /** BNC 词频排名（越小越高频） */
+  bnc?: number;
+  /** COCA 词频排名（越小越高频） */
+  frq?: number;
   wordbooks: string[]; // 多对多
   freqRank?: number;
 }
@@ -38,6 +44,8 @@ export interface WordbookRecord {
   source: 'builtin' | 'user';
   totalCount: number;
   description?: string;
+  /** 内置种子版本号，用于在 seed JSON 升级后触发重灌。仅 source='builtin' 时存在。 */
+  seedVersion?: number;
 }
 
 export interface CardRecord {
