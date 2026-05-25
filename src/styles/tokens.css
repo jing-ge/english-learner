@@ -1,0 +1,111 @@
+/* 全局设计 token：颜色、字号、圆角、阴影、间距 */
+
+:root {
+  /* 品牌色：温柔的薄荷青蓝，避开 Vant 默认蓝的扁平感 */
+  --el-primary-50: #e6f4ff;
+  --el-primary-100: #bae0ff;
+  --el-primary-300: #69b1ff;
+  --el-primary-500: #1677ff;
+  --el-primary-600: #0958d9;
+  --el-primary-700: #003eb3;
+
+  /* 强调色 */
+  --el-success-500: #16a34a;
+  --el-warning-500: #f59e0b;
+  --el-danger-500: #ef4444;
+  --el-purple-500: #7c3aed;
+  --el-pink-500: #ec4899;
+
+  /* 中性色 */
+  --el-bg-page: #f5f6fa;
+  --el-bg-card: #ffffff;
+  --el-bg-soft: #f2f3f5;
+
+  --el-text-primary: #1f2937;
+  --el-text-secondary: #4b5563;
+  --el-text-tertiary: #9ca3af;
+  --el-text-quaternary: #d1d5db;
+
+  --el-border-light: #f0f1f5;
+  --el-border-default: #e5e7eb;
+
+  /* hero 渐变 */
+  --el-hero-grad: linear-gradient(135deg, #6c8eff 0%, #8b5cf6 50%, #ec4899 100%);
+  --el-hero-grad-soft: linear-gradient(135deg, #93c5fd 0%, #c4b5fd 100%);
+
+  /* 词书封面渐变（按 index mod 6 取色） */
+  --el-cover-1: linear-gradient(135deg, #4f8cff 0%, #6c5ce7 100%);
+  --el-cover-2: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
+  --el-cover-3: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
+  --el-cover-4: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
+  --el-cover-5: linear-gradient(135deg, #ec008c 0%, #fc6767 100%);
+  --el-cover-6: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+
+  /* 圆角 */
+  --el-radius-sm: 8px;
+  --el-radius-md: 12px;
+  --el-radius-lg: 16px;
+  --el-radius-xl: 24px;
+
+  /* 阴影 */
+  --el-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --el-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
+  --el-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.08);
+  --el-shadow-cta: 0 8px 20px rgba(22, 119, 255, 0.32);
+
+  /* 间距 */
+  --el-space-1: 4px;
+  --el-space-2: 8px;
+  --el-space-3: 12px;
+  --el-space-4: 16px;
+  --el-space-5: 20px;
+  --el-space-6: 24px;
+  --el-space-8: 32px;
+  --el-space-10: 40px;
+
+  /* 字号 */
+  --el-font-xs: 12px;
+  --el-font-sm: 13px;
+  --el-font-md: 14px;
+  --el-font-lg: 16px;
+  --el-font-xl: 20px;
+  --el-font-2xl: 28px;
+  --el-font-3xl: 36px;
+}
+
+/* 让 Vant 主题色对齐我们的品牌色（按官方变量） */
+:root {
+  --van-primary-color: var(--el-primary-500);
+  --van-success-color: var(--el-success-500);
+  --van-danger-color: var(--el-danger-500);
+  --van-warning-color: var(--el-warning-500);
+}
+
+/* 全局基线 */
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    'PingFang SC',
+    'Helvetica Neue',
+    'Segoe UI',
+    sans-serif;
+  background: var(--el-bg-page);
+  color: var(--el-text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 通用工具类 */
+.el-section-title {
+  color: var(--el-text-tertiary);
+  font-size: var(--el-font-xs);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin: 0 0 var(--el-space-3) 0;
+}
