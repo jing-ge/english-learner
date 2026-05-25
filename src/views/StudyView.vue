@@ -28,6 +28,9 @@ const session = shallowRef<StudySession | null>(null);
 const currentWord = ref<WordRecord | null>(null);
 const sessionStats = ref({ total: 0 });
 const feedback = ref<'wrong' | 'right' | 'soft' | null>(null);
+// 防重入：评分动画/落库期间忽略后续 grade 调用，避免按钮+键盘+滑动同时触发
+// 导致 session.grade 在 phase=presenting 时被二次调用而早退（事件丢失/UI 卡住）
+const grading = ref(false);
 const mode = computed<'normal' | 'wrong'>(() =>
   route.query.mode === 'wrong' ? 'wrong' : 'normal',
 );
@@ -125,16 +128,23 @@ function reveal() {
 
 async function onGrade(g: Grade) {
   if (!session.value) return;
-  // 评分反馈：grade 0 = 不会（Again），>=2 = 记得（Good/Easy），1 = 模糊（Hard）
-  feedback.value = g === 0 ? 'wrong' : g >= 2 ? 'right' : 'soft';
-  // 让反馈动画有 ~280ms 帧位
-  await new Promise((r) => setTimeout(r, 280));
-  feedback.value = null;
+  if (grading.value) return;
+  if (session.value.phase !== 'revealed') return;
+  grading.value = true;
+  try {
+    // 评分反馈：grade 0 = 不会（Again），>=2 = 记得（Good/Easy），1 = 模糊（Hard）
+    feedback.value = g === 0 ? 'wrong' : g >= 2 ? 'right' : 'soft';
+    // 让反馈动画有 ~280ms 帧位
+    await new Promise((r) => setTimeout(r, 280));
+    feedback.value = null;
 
-  const event = session.value.grade(g, Date.now());
-  triggerRef(session);
-  if (event) await persistEvent(event);
-  await loadCurrentWord();
+    const event = session.value.grade(g, Date.now());
+    triggerRef(session);
+    if (event) await persistEvent(event);
+    await loadCurrentWord();
+  } finally {
+    grading.value = false;
+  }
 }
 
 async function persistEvent(event: ReviewEvent) {
@@ -284,7 +294,7 @@ function confettiStyle(i: number) {
 
     <template v-else>
       <div class="card-area" @click="reveal">
-        <transition name="card-fade" mode="out-in">
+        <transition name="card-fade">
           <WordCard
             v-if="currentWord"
             :key="currentWord.id"
