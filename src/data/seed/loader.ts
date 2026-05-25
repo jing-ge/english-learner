@@ -23,6 +23,8 @@ export interface SeedWordbook {
   id: string;
   name: string;
   description?: string;
+  /** 种子数据版本号，每次词条增删改都应递增。配合 ensureBuiltinSeeds 触发增量重灌。 */
+  version?: number;
   words: SeedWord[];
 }
 
@@ -56,6 +58,7 @@ export async function loadSeedWordbook(seed: SeedWordbook): Promise<{
     source: 'builtin',
     totalCount: seed.words.length,
     description: seed.description,
+    seedVersion: seed.version,
   };
 
   await wordbookRepo.upsert(book);

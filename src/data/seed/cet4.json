@@ -2,6 +2,7 @@
   "id": "cet4",
   "name": "CET4 核心高频",
   "description": "大学英语四级核心词汇，按 BNC/COCA 词频排序",
+  "version": 2,
   "words": [
     {
       "word": "government",

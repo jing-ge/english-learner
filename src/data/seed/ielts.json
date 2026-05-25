@@ -2,6 +2,7 @@
   "id": "ielts",
   "name": "雅思核心词汇",
   "description": "IELTS 雅思核心词汇，按 BNC/COCA 词频排序",
+  "version": 2,
   "words": [
     {
       "word": "in",

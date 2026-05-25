@@ -2,6 +2,7 @@
   "id": "kaoyan",
   "name": "考研核心词汇",
   "description": "硕士研究生入学考试核心词汇，按 BNC/COCA 词频排序",
+  "version": 2,
   "words": [
     {
       "word": "government",
