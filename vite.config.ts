@@ -9,6 +9,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
+      base: '/english-learner/',
       manifest: {
         name: 'English Learner',
         short_name: 'EnglishLearner',
@@ -17,7 +18,7 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
+        start_url: '/english-learner/',
         icons: [
           {
             src: '/pwa-192x192.png',

@@ -31,7 +31,6 @@ const DERIVED_BUILTINS: DerivedSeedSpec[] = [
 ];
 
 let _readyPromise: Promise<void> | null = null;
-let _ready = false;
 
 export async function ensureBuiltinSeeds(): Promise<void> {
   if (_readyPromise) return _readyPromise;
@@ -43,7 +42,6 @@ export async function ensureBuiltinSeeds(): Promise<void> {
     } catch (err) {
       console.warn('[ensureBuiltinSeeds] failed, will retry next launch:', err);
     }
-    _ready = true;
   })();
   return _readyPromise;
 }
