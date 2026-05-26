@@ -49,13 +49,17 @@ export interface WordbookRecord {
 }
 
 export interface CardRecord {
-  id: string; // = wordId
+  id: string; // = wordId（v2 起：word lowercase 本身，无词书前缀）
   wordId: string;
-  wordbookId: string;
-  // SM-2 状态
-  ease: number;
-  interval: number;
-  repetitions: number;
+  /** v2：一卡多词书归属。同词被多本启用时只保留一张卡，wordbooks 合并 */
+  wordbooks: string[];
+  // FSRS 状态
+  stability: number;
+  difficulty: number;
+  elapsed_days: number;
+  scheduled_days: number;
+  reps: number;
+  lapses: number;
   dueAt: number;
   // 元数据
   state: CardState;
@@ -81,6 +85,14 @@ export interface SettingsRecord {
   ttsAccent: 'us' | 'uk';
   reminderTime?: string;
   theme: 'light' | 'dark' | 'auto';
+  /** 错词判定窗口天数，默认 14 */
+  wrongWindowDays: number;
+  /** 错词阈值：grade <= wrongMaxGrade 视为错词。默认 1（不会+陌生） */
+  wrongMaxGrade: 0 | 1 | 2;
+  /** FSRS 目标留存率，默认 0.9 */
+  desiredRetention: number;
+  /** FSRS 个性化参数（17 元数组），空则用默认值 */
+  fsrsWeights?: number[];
 }
 
 export interface AudioCacheRecord {
@@ -96,4 +108,7 @@ export const DEFAULT_SETTINGS: SettingsRecord = {
   activeWordbookIds: [],
   ttsAccent: 'us',
   theme: 'auto',
+  wrongWindowDays: 14,
+  wrongMaxGrade: 1,
+  desiredRetention: 0.9,
 };

@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, shallowRef, triggerRef } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { NavBar, Loading } from 'vant';
+import { waitForSeeds } from '@/data/seed';
 import WordCard from '@/components/WordCard.vue';
 import AnswerBar from '@/components/AnswerBar.vue';
 import { buildTodaySession } from '@/domain/srs/scheduler';
@@ -36,28 +37,49 @@ const mode = computed<'normal' | 'wrong'>(() =>
 );
 
 onMounted(async () => {
+  await waitForSeeds();
   await settings.load();
   const now = Date.now();
   let queue: CardRecord[] = [];
   if (mode.value === 'wrong') {
-    const since = now - 14 * 24 * 60 * 60 * 1000;
+    const since = now - settings.settings.wrongWindowDays * 24 * 60 * 60 * 1000;
     const logs = await reviewLogRepo.listSince(since);
-    const wrongIds = deriveWrongCardIds(logs, 14, now);
+    const wrongIds = deriveWrongCardIds(
+      logs,
+      settings.settings.wrongWindowDays,
+      now,
+      settings.settings.wrongMaxGrade,
+    );
     const cards = await Promise.all(wrongIds.map((id) => cardRepo.getById(id)));
     queue = cards.filter((c): c is CardRecord => Boolean(c));
   } else {
-    const allCards = await cardRepo.listAllActive(settings.settings.activeWordbookIds);
-    const newWordIds = allCards.filter((c) => c.state === 'new').map((c) => c.wordId);
+    const activeIds = settings.settings.activeWordbookIds;
+    const activeSet = new Set(activeIds);
+    const inActive = (c: CardRecord) =>
+      activeSet.size === 0 || c.wordbooks.some((w) => activeSet.has(w));
+
+    // 按需查三类，避免全量扫表。reviews 走 [state+dueAt] 索引拿到期，再 in-memory 过词书。
+    const dueReviews = await cardRepo.listDueReviews(now);
+    const reviews = activeSet.size === 0 ? dueReviews : dueReviews.filter(inActive);
+    const learnings = await cardRepo.listByStateAndWordbooks('learning', activeIds);
+    const news = await cardRepo.listByStateAndWordbooks('new', activeIds);
+
+    const newWordIds = news.map((c) => c.wordId);
     const freqRankByWord = await wordRepo.getFreqRankMap(newWordIds);
     queue = buildTodaySession({
       settings: settings.settings,
-      allCards,
+      reviews,
+      learnings,
+      news,
       freqRankByWord,
       now,
     });
   }
   sessionStats.value.total = queue.length;
-  session.value = new StudySession(queue);
+  session.value = new StudySession(queue, {
+    desiredRetention: settings.settings.desiredRetention,
+    weights: settings.settings.fsrsWeights,
+  });
   await loadCurrentWord();
   loading.value = false;
 });
@@ -302,6 +324,7 @@ function confettiStyle(i: number) {
             v-if="currentWord"
             :key="currentWord.id"
             :word="currentWord"
+            :card="session?.current ?? null"
             :revealed="revealed"
             :feedback="feedback"
             @swipe-grade="onGrade"

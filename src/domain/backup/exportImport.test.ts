@@ -19,10 +19,13 @@ describe('exportBackup', () => {
     await cardRepo.upsert({
       id: 'a',
       wordId: 'a',
-      wordbookId: 'cet4',
-      ease: 2.5,
-      interval: 1,
-      repetitions: 1,
+      wordbooks: ['cet4'],
+      stability: 1,
+      difficulty: 5,
+      elapsed_days: 0,
+      scheduled_days: 1,
+      reps: 1,
+      lapses: 0,
       dueAt: NOW,
       state: 'review',
       addedAt: NOW,
@@ -56,10 +59,13 @@ describe('importBackup', () => {
     await cardRepo.upsert({
       id: 'should-be-gone',
       wordId: 'x',
-      wordbookId: 'cet4',
-      ease: 2.5,
-      interval: 0,
-      repetitions: 0,
+      wordbooks: ['cet4'],
+      stability: 0,
+      difficulty: 0,
+      elapsed_days: 0,
+      scheduled_days: 0,
+      reps: 0,
+      lapses: 0,
       dueAt: NOW,
       state: 'new',
       addedAt: NOW,
@@ -75,15 +81,21 @@ describe('importBackup', () => {
         activeWordbookIds: ['cet4'],
         ttsAccent: 'uk',
         theme: 'auto',
+        wrongWindowDays: 14,
+        wrongMaxGrade: 1,
+        desiredRetention: 0.9,
       },
       cards: [
         {
           id: 'imported',
           wordId: 'imported',
-          wordbookId: 'cet4',
-          ease: 2.5,
-          interval: 6,
-          repetitions: 2,
+          wordbooks: ['cet4'],
+          stability: 6,
+          difficulty: 4.5,
+          elapsed_days: 6,
+          scheduled_days: 15,
+          reps: 3,
+          lapses: 0,
           dueAt: NOW + 1000,
           state: 'review',
           addedAt: NOW,
@@ -130,10 +142,13 @@ describe('importBackup', () => {
     await cardRepo.upsert({
       id: 'a',
       wordId: 'a',
-      wordbookId: 'cet4',
-      ease: 2.7,
-      interval: 6,
-      repetitions: 2,
+      wordbooks: ['cet4'],
+      stability: 6.5,
+      difficulty: 4.2,
+      elapsed_days: 6,
+      scheduled_days: 15,
+      reps: 3,
+      lapses: 0,
       dueAt: NOW + 6 * 86400000,
       state: 'review',
       addedAt: NOW,
@@ -145,8 +160,8 @@ describe('importBackup', () => {
 
     await importBackup(exported);
     const card = await cardRepo.getById('a');
-    expect(card?.ease).toBeCloseTo(2.7, 5);
-    expect(card?.repetitions).toBe(2);
+    expect(card?.stability).toBeCloseTo(6.5, 5);
+    expect(card?.reps).toBe(3);
     const settings = await settingsRepo.get();
     expect(settings.dailyNewCount).toBe(25);
   });

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { forecastDueByDay, forecastRetention, ebbinghausBaseline } from './forecast';
+import {
+  forecastDueByDay,
+  forecastRetention,
+  ebbinghausBaseline,
+} from './forecast';
 import type { CardRecord } from '@/data/types';
 
 const DAY = 86_400_000;
@@ -9,10 +13,13 @@ function card(over: Partial<CardRecord>): CardRecord {
   return {
     id: 'a',
     wordId: 'a',
-    wordbookId: 'cet4',
-    ease: 2.5,
-    interval: 1,
-    repetitions: 1,
+    wordbooks: ['cet4'],
+    stability: 1,
+    difficulty: 5,
+    elapsed_days: 0,
+    scheduled_days: 1,
+    reps: 1,
+    lapses: 0,
     dueAt: T0,
     state: 'review',
     addedAt: T0 - 30 * DAY,
@@ -61,6 +68,13 @@ describe('forecastDueByDay', () => {
     ];
     expect(forecastDueByDay(cards, 7, T0)[0].dueCount).toBe(1);
   });
+
+  it('relearning 卡纳入到期统计', () => {
+    const cards = [
+      card({ id: 'rl', state: 'relearning', dueAt: T0 }),
+    ];
+    expect(forecastDueByDay(cards, 7, T0)[0].dueCount).toBe(1);
+  });
 });
 
 describe('forecastRetention', () => {
@@ -69,25 +83,31 @@ describe('forecastRetention', () => {
     expect(r.every((p) => p.retention === 0)).toBe(true);
   });
 
-  it('刚学过的（interval=1）今天接近 1，30 天后接近 0', () => {
-    const c = card({ interval: 1, lastReviewedAt: T0 });
+  it('刚学过的（stability=1）今天接近 1，30 天后明显衰减', () => {
+    const c = card({ stability: 1, lastReviewedAt: T0 });
     const r = forecastRetention([c], 30, T0);
     expect(r[0].retention).toBeGreaterThan(0.9);
-    expect(r[29].retention).toBeLessThan(0.01);
+    expect(r[29].retention).toBeLessThan(0.7);
   });
 
-  it('interval=30 的稳定卡 30 天衰减更慢', () => {
-    const c = card({ interval: 30, lastReviewedAt: T0 });
+  it('stability=30 的稳定卡 30 天衰减更慢', () => {
+    const c = card({ stability: 30, lastReviewedAt: T0 });
     const r = forecastRetention([c], 30, T0);
     expect(r[29].retention).toBeGreaterThan(0.3);
   });
 
   it('忽略未学过 (无 lastReviewedAt) 的卡', () => {
-    const learned = card({ interval: 30, lastReviewedAt: T0 });
+    const learned = card({ stability: 30, lastReviewedAt: T0 });
     const fresh = card({ id: 'fresh', state: 'new', lastReviewedAt: undefined });
     const r1 = forecastRetention([learned], 30, T0);
     const r2 = forecastRetention([learned, fresh], 30, T0);
     expect(r1[15].retention).toBeCloseTo(r2[15].retention, 3);
+  });
+
+  it('relearning 卡纳入留存率计算', () => {
+    const c = card({ id: 'rl', state: 'relearning', stability: 5, lastReviewedAt: T0 });
+    const r = forecastRetention([c], 7, T0);
+    expect(r[0].retention).toBeGreaterThan(0);
   });
 });
 

@@ -54,6 +54,21 @@ const ttsAccent = computed({
       .then(() => showToast(`已切换到 ${v.toUpperCase()} 发音`)),
 });
 
+const wrongWindowDays = computed({
+  get: () => settings.settings.wrongWindowDays,
+  set: (v) => void settings.update({ wrongWindowDays: clamp(v, 7, 30) }),
+});
+
+const wrongMaxGrade = computed({
+  get: () => settings.settings.wrongMaxGrade,
+  set: (v) => void settings.update({ wrongMaxGrade: v as 0 | 1 | 2 }),
+});
+
+const desiredRetention = computed({
+  get: () => settings.settings.desiredRetention,
+  set: (v) => void settings.update({ desiredRetention: v }),
+});
+
 const reminderEnabled = computed(() => Boolean(settings.settings.reminderTime));
 const reminderTimeLabel = computed(() => settings.settings.reminderTime ?? '未设置');
 
@@ -155,12 +170,41 @@ async function onFileChosen(e: Event) {
       </Cell>
     </CellGroup>
 
+    <CellGroup inset class="group" title="错词判定">
+      <Cell title="错词窗口" :label="`近 ${wrongWindowDays} 天的复习记录`">
+        <template #right-icon>
+          <Stepper v-model="wrongWindowDays" :min="7" :max="30" :step="1" integer />
+        </template>
+      </Cell>
+      <Cell title="错词阈值" label="评分小于等于此值视为错词">
+        <template #right-icon>
+          <RadioGroup v-model="wrongMaxGrade" direction="horizontal">
+            <Radio :name="0">仅不会</Radio>
+            <Radio :name="1">+陌生</Radio>
+            <Radio :name="2">+模糊</Radio>
+          </RadioGroup>
+        </template>
+      </Cell>
+    </CellGroup>
+
     <CellGroup inset class="group" title="发音">
       <Cell title="口音">
         <template #right-icon>
           <RadioGroup v-model="ttsAccent" direction="horizontal">
             <Radio name="us">美式</Radio>
             <Radio name="uk">英式</Radio>
+          </RadioGroup>
+        </template>
+      </Cell>
+    </CellGroup>
+
+    <CellGroup inset class="group" title="复习强度">
+      <Cell title="目标留存率" label="越高复习越频繁，记得越牢">
+        <template #right-icon>
+          <RadioGroup v-model="desiredRetention" direction="horizontal">
+            <Radio :name="0.85">宽松</Radio>
+            <Radio :name="0.9">平衡</Radio>
+            <Radio :name="0.95">严格</Radio>
           </RadioGroup>
         </template>
       </Cell>

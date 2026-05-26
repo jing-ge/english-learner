@@ -2,9 +2,12 @@ import type { ReviewLogRecord } from '../../data/types';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** 错词阈值：grade <= maxGrade 视为错。0=仅"不会"；1=不会+陌生；2=连"模糊"也算（最严） */
+export type WrongMaxGrade = 0 | 1 | 2;
+
 /**
  * 从最近窗口的 reviewLogs 派生"错词卡片 ID"。
- * 规则：以 cardId 为单位取**最后一次**评分；若最后一次 grade <= 1，视为错词。
+ * 规则：以 cardId 为单位取**最后一次**评分；若最后一次 grade <= maxGrade，视为错词。
  *
  * 这样能正确处理"上次错→今天对"的恢复情形，避免学过的词永远被钉在错词本。
  */
@@ -12,6 +15,7 @@ export function deriveWrongCardIds(
   logs: ReviewLogRecord[],
   windowDays = 14,
   now: number = Date.now(),
+  maxGrade: WrongMaxGrade = 1,
 ): string[] {
   const since = now - windowDays * DAY_MS;
   const last = new Map<string, ReviewLogRecord>();
@@ -24,7 +28,7 @@ export function deriveWrongCardIds(
   }
   const out: string[] = [];
   for (const [cardId, l] of last) {
-    if (l.grade <= 1) out.push(cardId);
+    if (l.grade <= maxGrade) out.push(cardId);
   }
   return out;
 }
@@ -44,6 +48,7 @@ export function summarizeWrong(
   logs: ReviewLogRecord[],
   windowDays = 14,
   now: number = Date.now(),
+  maxGrade: WrongMaxGrade = 1,
 ): WrongStat[] {
   const since = now - windowDays * DAY_MS;
   const stats = new Map<string, WrongStat>();
@@ -55,16 +60,16 @@ export function summarizeWrong(
       stats.set(l.cardId, s);
     }
     s.totalCount += 1;
-    if (l.grade <= 1) s.wrongCount += 1;
+    if (l.grade <= maxGrade) s.wrongCount += 1;
     if (l.reviewedAt > s.lastReviewedAt) {
       s.lastReviewedAt = l.reviewedAt;
       s.lastGrade = l.grade;
     }
   }
-  // 仅保留"最近一次评分 <=1"的，作为错词
+  // 仅保留"最近一次评分 <=maxGrade"的，作为错词
   const out: WrongStat[] = [];
   for (const s of stats.values()) {
-    if (s.lastGrade <= 1) out.push(s);
+    if (s.lastGrade <= maxGrade) out.push(s);
   }
   // 默认排序：错次最多在前，并列按最近反馈时间近的在前
   out.sort((a, b) => {

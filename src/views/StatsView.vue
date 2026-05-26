@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { reviewLogRepo } from '@/data/repositories/reviewLogRepo';
 import { cardRepo } from '@/data/repositories/cardRepo';
+import { useSettingsStore } from '@/stores/settings';
 import { computeStreak } from '@/domain/stats/streak';
 import { bucketByDay, summarize, heatLevels, type DailyBucket } from '@/domain/stats/aggregate';
 import {
@@ -12,11 +13,13 @@ import {
   type ForecastPoint,
   type RetentionPoint,
 } from '@/domain/stats/forecast';
+import { forgetting_curve, generatorParameters } from 'ts-fsrs';
 import { deriveWrongCardIds } from '@/domain/wrongbook/wrongBook';
 import { useAnimatedNumber } from '@/composables/useAnimatedNumber';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const router = useRouter();
+const settings = useSettingsStore();
 
 const loading = ref(true);
 const todayCount = ref(0);
@@ -36,6 +39,9 @@ const baseRetention = ref<RetentionPoint[]>([]);
 
 const window7 = ref({ totalReviews: 0, totalCorrect: 0, accuracy: 0, activeDays: 0, totalDurationMs: 0 });
 const window30 = ref({ totalReviews: 0, totalCorrect: 0, accuracy: 0, activeDays: 0, totalDurationMs: 0 });
+
+// 记忆健康度分桶
+const healthBuckets = ref({ solid: 0, warm: 0, fading: 0 });
 
 function startOfTodayMs(): number {
   const d = new Date();
@@ -65,6 +71,7 @@ function dayNum(ts: number): number {
 const todayStart = computed(() => startOfTodayMs());
 
 onMounted(async () => {
+  await settings.load();
   const dayStart = startOfTodayMs();
   const now = Date.now();
   const since = dayStart - 89 * DAY_MS; // 拉近 90 天，足够算热力图与各窗口
@@ -72,7 +79,12 @@ onMounted(async () => {
 
   todayCount.value = recentLogs.filter((l) => l.reviewedAt >= dayStart).length;
   streak.value = computeStreak(recentLogs, now);
-  wrongCount.value = deriveWrongCardIds(recentLogs, 14, now).length;
+  wrongCount.value = deriveWrongCardIds(
+    recentLogs,
+    settings.settings.wrongWindowDays,
+    now,
+    settings.settings.wrongMaxGrade,
+  ).length;
 
   const buckets30 = bucketByDay(recentLogs, 30, now);
   heat.value = buckets30;
@@ -82,17 +94,35 @@ onMounted(async () => {
   window7.value = summarize(recentLogs, dayStart - 6 * DAY_MS, now);
   window30.value = summarize(recentLogs, dayStart - 29 * DAY_MS, now);
 
-  const reviews = await cardRepo.listByState('review');
+  // 仅统计当前活跃词书，与学习视图口径保持一致
+  const activeIds = settings.settings.activeWordbookIds;
+  const reviews = await cardRepo.listByStateAndWordbooks('review', activeIds);
   learnedCount.value = reviews.length;
-  const news = await cardRepo.listByState('new');
+  const news = await cardRepo.listByStateAndWordbooks('new', activeIds);
   newCount.value = news.length;
 
-  // 记忆曲线：到期预报 + 留存率推演
-  const learningCards = await cardRepo.listByState('learning');
-  const allActiveCards = [...reviews, ...learningCards];
+  // 记忆曲线：到期预报 + FSRS 留存率推演
+  const learningCards = await cardRepo.listByStateAndWordbooks('learning', activeIds);
+  const relearningCards = await cardRepo.listByStateAndWordbooks('relearning', activeIds);
+  const allActiveCards = [...reviews, ...learningCards, ...relearningCards];
+  const fsrsWeights = settings.settings.fsrsWeights;
   dueForecast.value = forecastDueByDay(allActiveCards, FORECAST_DAYS, now);
-  myRetention.value = forecastRetention(allActiveCards, FORECAST_DAYS, now);
-  baseRetention.value = ebbinghausBaseline(FORECAST_DAYS);
+  myRetention.value = forecastRetention(allActiveCards, FORECAST_DAYS, now, fsrsWeights);
+  baseRetention.value = ebbinghausBaseline(FORECAST_DAYS, fsrsWeights);
+
+  // 记忆健康度：按 retrievability 分桶
+  const w = fsrsWeights ?? generatorParameters().w;
+  const DAY_MS2 = 86400000;
+  let solid = 0, warm = 0, fading = 0;
+  for (const c of allActiveCards) {
+    if (!c.lastReviewedAt || c.stability <= 0) continue;
+    const elapsed = Math.max(0, (now - c.lastReviewedAt) / DAY_MS2);
+    const r = forgetting_curve(w, elapsed, c.stability);
+    if (r >= 0.9) solid++;
+    else if (r >= 0.7) warm++;
+    else fading++;
+  }
+  healthBuckets.value = { solid, warm, fading };
 
   loading.value = false;
 });
@@ -153,6 +183,12 @@ const retentionAt30 = computed(() => {
   return last ? Math.round(last.retention * 100) : 0;
 });
 
+// 记忆健康度
+const healthTotal = computed(() => healthBuckets.value.solid + healthBuckets.value.warm + healthBuckets.value.fading);
+const healthSolidPct = computed(() => healthTotal.value === 0 ? 0 : Math.round(healthBuckets.value.solid / healthTotal.value * 100));
+const healthWarmPct = computed(() => healthTotal.value === 0 ? 0 : Math.round(healthBuckets.value.warm / healthTotal.value * 100));
+const healthFadingPct = computed(() => healthTotal.value === 0 ? 0 : 100 - healthSolidPct.value - healthWarmPct.value);
+
 // KPI 数字滚动
 const animatedStreak = useAnimatedNumber(streak, { duration: 700 });
 const animatedTodayCount = useAnimatedNumber(todayCount, { duration: 600 });
@@ -187,6 +223,24 @@ const displayedNewCount = computed(() => Math.round(animatedNewCount.value));
       <div class="kpi kpi-orange">
         <div class="kpi-num">{{ displayedNewCount }}</div>
         <div class="kpi-label">待学新词</div>
+      </div>
+    </section>
+
+    <!-- 记忆健康度 -->
+    <section v-if="healthTotal > 0" class="block">
+      <div class="block-head">
+        <div class="block-title">记忆健康度</div>
+        <div class="block-extra">{{ healthTotal }} 词已学</div>
+      </div>
+      <div class="health-bar">
+        <div class="health-fill health-solid" :style="{ width: healthSolidPct + '%' }"></div>
+        <div class="health-fill health-warm" :style="{ width: healthWarmPct + '%' }"></div>
+        <div class="health-fill health-fading" :style="{ width: healthFadingPct + '%' }"></div>
+      </div>
+      <div class="health-legend">
+        <span class="hl-item"><span class="hl-dot hl-solid"></span>牢固 {{ healthBuckets.solid }}<small>({{ healthSolidPct }}%)</small></span>
+        <span class="hl-item"><span class="hl-dot hl-warm"></span>温习中 {{ healthBuckets.warm }}<small>({{ healthWarmPct }}%)</small></span>
+        <span class="hl-item"><span class="hl-dot hl-fading"></span>将遗忘 {{ healthBuckets.fading }}<small>({{ healthFadingPct }}%)</small></span>
       </div>
     </section>
 
@@ -568,6 +622,48 @@ const displayedNewCount = computed(() => Math.round(animatedNewCount.value));
   color: var(--el-text-tertiary);
   margin-top: 2px;
 }
+
+/* 记忆健康度 */
+.health-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--el-bg-soft);
+}
+.health-fill {
+  height: 100%;
+  transition: width 0.4s ease;
+}
+.health-solid { background: #16a34a; }
+.health-warm { background: #f59e0b; }
+.health-fading { background: #ef4444; }
+.health-legend {
+  display: flex;
+  gap: var(--el-space-4);
+  margin-top: var(--el-space-3);
+  font-size: 12px;
+  color: var(--el-text-secondary);
+  flex-wrap: wrap;
+}
+.hl-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.hl-item small {
+  color: var(--el-text-tertiary);
+  margin-left: 2px;
+}
+.hl-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.hl-solid { background: #16a34a; }
+.hl-warm { background: #f59e0b; }
+.hl-fading { background: #ef4444; }
 
 /* 入口块 */
 .link-block {

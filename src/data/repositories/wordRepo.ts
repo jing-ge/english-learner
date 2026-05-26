@@ -10,6 +10,11 @@ export const wordRepo = {
     return getDb().words.where('word').equals(word).first();
   },
 
+  async bulkGet(ids: string[]): Promise<(WordRecord | undefined)[]> {
+    if (ids.length === 0) return [];
+    return getDb().words.bulkGet(ids);
+  },
+
   async listByWordbook(wordbookId: string, limit?: number): Promise<WordRecord[]> {
     const q = getDb().words.where('wordbooks').equals(wordbookId);
     return limit !== undefined ? q.limit(limit).toArray() : q.toArray();
@@ -20,21 +25,28 @@ export const wordRepo = {
   },
 
   /**
-   * 批量取词条 id → freqRank 映射，供 scheduler 排序新词。
-   * 仅返回有 freqRank 的词；wordIds 缺省时返回全部。
+   * 批量取词条 id → 频率排名映射，供 scheduler 排序新词。
+   * freqRank（种子初始化时写入）优先，回退 bnc → frq（ECDICT 懒加载写入）。
+   * 均缺失的词不加入 Map，排序时视为 Infinity（排最后）。
    */
   async getFreqRankMap(wordIds?: string[]): Promise<Map<string, number>> {
     const db = getDb();
     const out = new Map<string, number>();
+    const pick = (w: WordRecord): number | undefined =>
+      w.freqRank ?? w.bnc ?? w.frq;
     if (wordIds && wordIds.length > 0) {
       const rows = await db.words.bulkGet(wordIds);
       for (const w of rows) {
-        if (w && typeof w.freqRank === 'number') out.set(w.id, w.freqRank);
+        if (w) {
+          const r = pick(w);
+          if (r !== undefined) out.set(w.id, r);
+        }
       }
       return out;
     }
     await db.words.each((w) => {
-      if (typeof w.freqRank === 'number') out.set(w.id, w.freqRank);
+      const r = pick(w);
+      if (r !== undefined) out.set(w.id, r);
     });
     return out;
   },

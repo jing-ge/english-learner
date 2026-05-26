@@ -14,10 +14,13 @@ function card(id: string, overrides: Partial<CardRecord> = {}): CardRecord {
   return {
     id,
     wordId: id,
-    wordbookId: 'cet4',
-    ease: 2.5,
-    interval: 1,
-    repetitions: 0,
+    wordbooks: ['cet4'],
+    stability: 0,
+    difficulty: 0,
+    elapsed_days: 0,
+    scheduled_days: 0,
+    reps: 0,
+    lapses: 0,
     dueAt: NOW,
     state: 'new',
     addedAt: NOW,
@@ -74,27 +77,47 @@ describe('cardRepo - 复合索引 [state+dueAt]', () => {
 });
 
 describe('cardRepo - 词书过滤', () => {
-  it('listAllActive 按 wordbookId 过滤', async () => {
+  it('listAllActive 按 wordbooks 多值索引过滤', async () => {
     await cardRepo.bulkUpsert([
-      card('a', { wordbookId: 'cet4' }),
-      card('b', { wordbookId: 'kaoyan' }),
-      card('c', { wordbookId: 'ielts' }),
+      card('a', { wordbooks: ['cet4'] }),
+      card('b', { wordbooks: ['kaoyan'] }),
+      card('c', { wordbooks: ['ielts'] }),
     ]);
     const out = await cardRepo.listAllActive(['cet4', 'kaoyan']);
     expect(out.map((c) => c.id).sort()).toEqual(['a', 'b']);
   });
 
+  it('listAllActive 一卡多书时仅返回一次（distinct）', async () => {
+    await cardRepo.bulkUpsert([
+      card('shared', { wordbooks: ['cet4', 'kaoyan'] }),
+      card('only_cet4', { wordbooks: ['cet4'] }),
+    ]);
+    const out = await cardRepo.listAllActive(['cet4', 'kaoyan']);
+    expect(out.map((c) => c.id).sort()).toEqual(['only_cet4', 'shared']);
+  });
+
   it('listAllActive 空数组返回全部', async () => {
-    await cardRepo.bulkUpsert([card('a'), card('b', { wordbookId: 'kaoyan' })]);
+    await cardRepo.bulkUpsert([card('a'), card('b', { wordbooks: ['kaoyan'] })]);
     const out = await cardRepo.listAllActive([]);
     expect(out).toHaveLength(2);
   });
 
-  it('deleteByWordbookAndState 只删指定词书+状态', async () => {
+  it('listByStateAndWordbooks 过滤 state + wordbooks', async () => {
     await cardRepo.bulkUpsert([
-      card('a', { wordbookId: 'cet4', state: 'new' }),
-      card('b', { wordbookId: 'cet4', state: 'review' }),
-      card('c', { wordbookId: 'kaoyan', state: 'new' }),
+      card('a', { wordbooks: ['cet4'], state: 'new' }),
+      card('b', { wordbooks: ['cet4'], state: 'review' }),
+      card('c', { wordbooks: ['kaoyan'], state: 'new' }),
+      card('d', { wordbooks: ['ielts'], state: 'new' }),
+    ]);
+    const out = await cardRepo.listByStateAndWordbooks('new', ['cet4', 'kaoyan']);
+    expect(out.map((c) => c.id).sort()).toEqual(['a', 'c']);
+  });
+
+  it('deleteByWordbookAndState 只删 state + 该词书归属（不考虑独占）', async () => {
+    await cardRepo.bulkUpsert([
+      card('a', { wordbooks: ['cet4'], state: 'new' }),
+      card('b', { wordbooks: ['cet4'], state: 'review' }),
+      card('c', { wordbooks: ['kaoyan'], state: 'new' }),
     ]);
     const deleted = await cardRepo.deleteByWordbookAndState('cet4', 'new');
     expect(deleted).toBe(1);

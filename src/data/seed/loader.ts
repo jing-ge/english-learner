@@ -6,8 +6,11 @@ import { wordbookRepo } from '../repositories/wordbookRepo';
  * 种子词书 JSON 的 schema：
  *   { id, name, description?, words: SeedWord[] }
  *
- * SeedWord 不含 id（由 wordbookId + word 派生），不含 wordbooks 字段
+ * SeedWord 不含 id（由 word lowercase 派生），不含 wordbooks 字段
  * （由加载器注入），让 JSON 写起来更紧凑。
+ *
+ * v2 起：WordRecord.id = word.toLowerCase()，全局唯一。同词被多本词书引用时
+ * 通过 wordbooks 数组合并，避免重复存储和重复学习。
  */
 export interface SeedWord {
   word: string;
@@ -41,7 +44,7 @@ export async function loadSeedWordbook(seed: SeedWordbook): Promise<{
   wordsLoaded: number;
 }> {
   const wordRecords: WordRecord[] = seed.words.map((w) => ({
-    id: makeWordId(seed.id, w.word),
+    id: makeWordId(w.word),
     word: w.word,
     phonetic: w.phonetic,
     translations: w.translations,
@@ -63,27 +66,41 @@ export async function loadSeedWordbook(seed: SeedWordbook): Promise<{
 
   await wordbookRepo.upsert(book);
 
-  // 对已存在的 word 做 wordbooks 合并 + 空字段填充；新词直接 put
-  for (const rec of wordRecords) {
-    const existing = await wordRepo.getById(rec.id);
-    if (!existing) {
-      await wordRepo.bulkUpsert([rec]);
-    } else {
-      const mergedBooks = Array.from(new Set([...existing.wordbooks, ...rec.wordbooks]));
-      await wordRepo.bulkUpsert([{ ...existing, wordbooks: mergedBooks }]);
-      await wordRepo.patchEmptyFields(rec.id, {
-        phonetic: rec.phonetic,
-        examples: rec.examples,
-        collocations: rec.collocations,
-        audioUrl: rec.audioUrl,
-        translations: rec.translations,
-      });
-    }
-  }
+  // 批量读已存在词，再合并 wordbooks + 空字段补全，最后一次 bulkPut。
+  // N 词时把 3N 次 round-trip 收敛到 2 次（bulkGet + bulkPut）。
+  const ids = wordRecords.map((r) => r.id);
+  const existingList = await wordRepo.bulkGet(ids);
+  const existingMap = new Map<string, WordRecord>();
+  for (const e of existingList) if (e) existingMap.set(e.id, e);
+
+  const merged: WordRecord[] = wordRecords.map((rec) => {
+    const existing = existingMap.get(rec.id);
+    if (!existing) return rec;
+    const out: WordRecord = { ...existing };
+    const wbSet = new Set<string>([...(existing.wordbooks ?? []), ...rec.wordbooks]);
+    out.wordbooks = Array.from(wbSet);
+    // patchEmptyFields 语义：仅当现有字段为空才用新值
+    const fillIfEmpty = <K extends keyof WordRecord>(k: K, v: WordRecord[K] | undefined): void => {
+      if (v === undefined) return;
+      const cur = out[k] as unknown;
+      const isEmpty =
+        cur === undefined || cur === null || (Array.isArray(cur) && cur.length === 0) || cur === '';
+      if (isEmpty) out[k] = v as WordRecord[K];
+    };
+    fillIfEmpty('phonetic', rec.phonetic);
+    fillIfEmpty('examples', rec.examples);
+    fillIfEmpty('collocations', rec.collocations);
+    fillIfEmpty('audioUrl', rec.audioUrl);
+    fillIfEmpty('translations', rec.translations);
+    fillIfEmpty('freqRank', rec.freqRank);
+    return out;
+  });
+
+  await wordRepo.bulkUpsert(merged);
 
   return { wordbookId: seed.id, wordsLoaded: wordRecords.length };
 }
 
-export function makeWordId(wordbookId: string, word: string): string {
-  return `${wordbookId}_${word.toLowerCase()}`;
+export function makeWordId(word: string): string {
+  return word.toLowerCase();
 }

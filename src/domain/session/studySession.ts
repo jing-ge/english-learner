@@ -1,6 +1,6 @@
 import type { CardRecord } from '../../data/types';
 import type { Grade } from '../types';
-import { sm2 } from '../srs/sm2';
+import { fsrs, type FsrsParams } from '../srs/fsrs';
 
 /**
  * 学习会话状态机（spec §6.2）。
@@ -8,7 +8,7 @@ import { sm2 } from '../srs/sm2';
  * 状态：
  *   presenting → 显示词形、可发音；用户点"显示释义"
  *   revealed   → 完整释义/例句/音标显示；等用户选 0/1/2/3
- *   grading    → 应用 SM-2、写日志事件，自动转下一张
+ *   grading    → 应用 FSRS、写日志事件，自动转下一张
  *   done       → 队列空，会话结束
  *
  * 关键规则：
@@ -22,7 +22,9 @@ export interface ReviewEvent {
   cardId: string;
   reviewedAt: number;
   grade: Grade;
+  /** 上次调度间隔（天数），沿用旧字段名兼容 ReviewLogRecord */
   prevInterval: number;
+  /** 本次调度间隔（天数），沿用旧字段名兼容 ReviewLogRecord */
   nextInterval: number;
   durationMs: number;
   /** 评分后的 card 完整状态，调用方据此 upsert */
@@ -38,10 +40,12 @@ export class StudySession {
   readonly events: ReviewEvent[] = [];
   private _phase: SessionPhase;
   private currentStartedAt: number | null = null;
+  private fsrsParams: FsrsParams;
 
-  constructor(initialQueue: CardRecord[]) {
+  constructor(initialQueue: CardRecord[], fsrsParams: FsrsParams) {
     this.queue = [...initialQueue];
     this._phase = this.queue.length === 0 ? 'done' : 'presenting';
+    this.fsrsParams = fsrsParams;
   }
 
   get phase(): SessionPhase {
@@ -73,12 +77,15 @@ export class StudySession {
     if (this._phase !== 'revealed' || this.queue.length === 0) return null;
 
     const card = this.queue[0];
-    const result = sm2(card, grade, now);
+    const result = fsrs(card, grade, now, this.fsrsParams);
     const nextCard: CardRecord = {
       ...card,
-      ease: result.ease,
-      interval: result.interval,
-      repetitions: result.repetitions,
+      stability: result.stability,
+      difficulty: result.difficulty,
+      elapsed_days: result.elapsed_days,
+      scheduled_days: result.scheduled_days,
+      reps: result.reps,
+      lapses: result.lapses,
       dueAt: result.dueAt,
       state: result.state,
       lastReviewedAt: now,
@@ -91,8 +98,8 @@ export class StudySession {
       cardId: card.id,
       reviewedAt: now,
       grade,
-      prevInterval: card.interval,
-      nextInterval: result.interval,
+      prevInterval: card.scheduled_days,
+      nextInterval: result.scheduled_days,
       durationMs: this.currentStartedAt !== null ? Math.max(0, now - this.currentStartedAt) : 0,
       nextCard,
       firstReviewInSession,

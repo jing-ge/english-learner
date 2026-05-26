@@ -8,39 +8,38 @@ export interface SchedulerSettings {
 
 export interface SchedulerInput {
   settings: SchedulerSettings;
-  /** 已加载的全部 cards（领域层不查库；调用方负责装载） */
-  allCards: CardRecord[];
+  /** 预分类好的三类卡（v2 起调用方按需查库装载，避免全量扫表） */
+  reviews: CardRecord[];
+  learnings: CardRecord[];
+  news: CardRecord[];
   /** 词形→freqRank 的映射，用于排序 new 卡。缺失视为 +Infinity（最低优先） */
   freqRankByWord?: Map<string, number>;
   now: number;
 }
 
 /**
- * 构建一次学习会话的卡片队列：
- *   1. 取 state='review' 且 dueAt <= now → reviews（按 dueAt 升序，受 dailyReviewCap 截断）
- *   2. 取 state='learning' → learnings（不受 cap 限制；本来就是当天该过的）
- *   3. 取 state='new' → news（按 freqRank 升序），取前 dailyNewCount 张
+ * 构建一次学习会话的卡片队列（v2）：
+ *   1. reviews：调用方已用 [state+dueAt] 范围查到期；这里仅按 dueAt 升序，受 dailyReviewCap 截断
+ *   2. learnings：调用方已查 state='learning'；不受 cap，按 dueAt 升序
+ *   3. news：调用方已查 state='new'；按 freqRank 升序，取前 dailyNewCount
  *   4. 交错混合：先到期复习 → 中间穿插学习中 → 末尾新词
  *
- * 仅过滤 activeWordbookIds 中的词书；其他词书的卡片忽略。
+ * activeWordbookIds 由调用方在查库时已应用，scheduler 不再做词书过滤。
  */
 export function buildTodaySession(input: SchedulerInput): CardRecord[] {
-  const { settings, allCards, freqRankByWord, now } = input;
-  const activeSet = new Set(settings.activeWordbookIds);
+  const { settings, reviews: rawReviews, learnings: rawLearnings, news: rawNews, freqRankByWord, now } = input;
 
-  const inActive = (c: CardRecord) => activeSet.size === 0 || activeSet.has(c.wordbookId);
-
-  const reviews = allCards
-    .filter((c) => inActive(c) && c.state === 'review' && c.dueAt <= now)
+  const reviews = rawReviews
+    .filter((c) => c.state === 'review' && c.dueAt <= now)
     .sort((a, b) => a.dueAt - b.dueAt)
     .slice(0, Math.max(0, settings.dailyReviewCap));
 
-  const learnings = allCards
-    .filter((c) => inActive(c) && c.state === 'learning')
+  const learnings = rawLearnings
+    .filter((c) => c.state === 'learning')
     .sort((a, b) => a.dueAt - b.dueAt);
 
-  const newsAll = allCards
-    .filter((c) => inActive(c) && c.state === 'new')
+  const newsAll = rawNews
+    .filter((c) => c.state === 'new')
     .sort((a, b) => {
       const ra = freqRankByWord?.get(a.wordId) ?? Number.POSITIVE_INFINITY;
       const rb = freqRankByWord?.get(b.wordId) ?? Number.POSITIVE_INFINITY;

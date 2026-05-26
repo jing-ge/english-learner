@@ -182,3 +182,91 @@ export async function lookup(word: string): Promise<LocalDictResult | null> {
   if (!db) return null;
   return lookupSync(word);
 }
+
+/**
+ * 批量查询词频（bnc/frq），复用单条 prepared statement。
+ * 返回 Map<word, {bnc?, frq?}>，未命中的词不出现在 Map 中。
+ * DB 未就绪返回空 Map。
+ */
+export function batchLookupFreq(words: string[]): Map<string, { bnc?: number; frq?: number }> {
+  const out = new Map<string, { bnc?: number; frq?: number }>();
+  if (!_db || words.length === 0) return out;
+  const stmt = _db.prepare(
+    'SELECT word, bnc, frq FROM dict WHERE word = ? COLLATE NOCASE LIMIT 1',
+  );
+  try {
+    for (const w of words) {
+      stmt.bind([w.toLowerCase()]);
+      if (stmt.step()) {
+        const row = stmt.getAsObject() as {
+          word: string;
+          bnc: number | null;
+          frq: number | null;
+        };
+        const bnc = row.bnc != null && row.bnc > 0 ? row.bnc : undefined;
+        const frq = row.frq != null && row.frq > 0 ? row.frq : undefined;
+        if (bnc !== undefined || frq !== undefined) {
+          out.set(w, { bnc, frq });
+        }
+      }
+      stmt.reset();
+    }
+  } finally {
+    stmt.free();
+  }
+  return out;
+}
+
+/** ECDICT tag 字段是空格分隔的标签集合（如 "cet4 ky toefl"），按 LIKE 匹配 */
+export type EcdictTag = 'gk' | 'cet4' | 'ky' | 'cet6' | 'ielts' | 'toefl' | 'gre';
+
+/**
+ * 按 tag 列出全部命中词，按 COALESCE(NULLIF(bnc,0), NULLIF(frq,0), 99999) 升序，
+ * 给出稳定 freqRank（数组下标）。DB 未就绪返回空数组。
+ *
+ * 用于派生内置词书（gk/cet6/toefl/gre 不预生成 JSON，运行时从 ECDICT 抽取）。
+ */
+export async function listByTag(tag: EcdictTag, limit?: number): Promise<LocalDictResult[]> {
+  const db = await ensureLocalDict();
+  if (!db) return [];
+  // 用 ' tag ' 包夹避免 'cet4' 命中 'cet40' 之类（虽然 ECDICT 没这种值，纯防御）
+  const pattern = `% ${tag} %`;
+  const sql =
+    "SELECT word, phonetic, translation, exchange, tag, bnc, frq " +
+    'FROM dict ' +
+    "WHERE (' ' || tag || ' ') LIKE ? " +
+    'ORDER BY COALESCE(NULLIF(bnc, 0), NULLIF(frq, 0), 99999) ASC, word ASC' +
+    (limit !== undefined ? ` LIMIT ${Math.max(0, Math.floor(limit))}` : '');
+  const stmt = db.prepare(sql);
+  const out: LocalDictResult[] = [];
+  try {
+    stmt.bind([pattern]);
+    while (stmt.step()) {
+      const row = stmt.getAsObject() as {
+        word: string;
+        phonetic: string | null;
+        translation: string | null;
+        exchange: string | null;
+        tag: string | null;
+        bnc: number | null;
+        frq: number | null;
+      };
+      out.push({
+        word: row.word,
+        phonetic: row.phonetic
+          ? row.phonetic.startsWith('/')
+            ? row.phonetic
+            : `/${row.phonetic}/`
+          : undefined,
+        translations: row.translation ? parseTranslation(row.translation) : [],
+        exchange: row.exchange ?? undefined,
+        tag: row.tag ?? undefined,
+        bnc: row.bnc != null && row.bnc > 0 ? row.bnc : undefined,
+        frq: row.frq != null && row.frq > 0 ? row.frq : undefined,
+      });
+    }
+  } finally {
+    stmt.free();
+  }
+  return out;
+}

@@ -5,18 +5,22 @@ import { NavBar, Empty } from 'vant';
 import { reviewLogRepo } from '@/data/repositories/reviewLogRepo';
 import { wordRepo } from '@/data/repositories/wordRepo';
 import { summarizeWrong, type WrongStat } from '@/domain/wrongbook/wrongBook';
+import { useSettingsStore } from '@/stores/settings';
 import type { WordRecord } from '@/data/types';
 
 const router = useRouter();
+const settings = useSettingsStore();
 const loading = ref(true);
 const stats = ref<WrongStat[]>([]);
 const wordsById = ref<Map<string, WordRecord>>(new Map());
 
 onMounted(async () => {
+  await settings.load();
   const now = Date.now();
-  const since = now - 14 * 24 * 60 * 60 * 1000;
+  const win = settings.settings.wrongWindowDays;
+  const since = now - win * 24 * 60 * 60 * 1000;
   const logs = await reviewLogRepo.listSince(since);
-  stats.value = summarizeWrong(logs, 14, now);
+  stats.value = summarizeWrong(logs, win, now, settings.settings.wrongMaxGrade);
 
   // CardRecord.id === wordId（按 schema 约定），cardId 即 wordId
   const ids = stats.value.map((s) => s.cardId);

@@ -3,6 +3,7 @@ import { onMounted, computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProgressStore } from '@/stores/progress';
 import { useSettingsStore } from '@/stores/settings';
+import { waitForSeeds } from '@/data/seed';
 import { reviewLogRepo } from '@/data/repositories/reviewLogRepo';
 import { computeStreak } from '@/domain/stats/streak';
 import { useAnimatedNumber } from '@/composables/useAnimatedNumber';
@@ -15,6 +16,7 @@ const streak = ref(0);
 const loading = ref(true);
 
 onMounted(async () => {
+  await waitForSeeds();
   await settings.load();
   await progress.refresh();
   const sixtyDaysAgo = Date.now() - 60 * 24 * 60 * 60 * 1000;
@@ -97,7 +99,7 @@ function goWordbook() {
       <div class="onb-title">欢迎使用 English Learner</div>
       <div class="onb-sub">无广告、无订阅、可离线，专注帮你记牢每一个单词</div>
       <ul class="onb-list">
-        <li><span class="check">✓</span>SM-2 算法智能调度复习</li>
+        <li><span class="check">✓</span>FSRS 算法智能调度复习</li>
         <li><span class="check">✓</span>例句关键词高亮、发音离线缓存</li>
         <li><span class="check">✓</span>30 天热力图见证你的努力</li>
       </ul>

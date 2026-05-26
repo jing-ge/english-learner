@@ -4,6 +4,7 @@ import { Switch, Popup, Button, showToast, showSuccessToast, showFailToast, show
 import { wordbookRepo } from '@/data/repositories/wordbookRepo';
 import { useSettingsStore } from '@/stores/settings';
 import { useProgressStore } from '@/stores/progress';
+import { waitForSeeds } from '@/data/seed';
 import {
   enableWordbook,
   disableWordbook,
@@ -29,6 +30,7 @@ const activeCount = computed(() => settings.settings.activeWordbookIds.length);
 const previewParsed = computed(() => parseImportText(importText.value));
 
 onMounted(async () => {
+  await waitForSeeds();
   await refresh();
   loading.value = false;
 });

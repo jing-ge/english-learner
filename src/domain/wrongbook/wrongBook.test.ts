@@ -40,6 +40,18 @@ describe('deriveWrongCardIds', () => {
     const logs = [log('old', now - 100 * DAY, 0)];
     expect(deriveWrongCardIds(logs, 14, now)).toEqual([]);
   });
+
+  it('maxGrade=0 仅"不会"算错；maxGrade=2 连"模糊"也算', () => {
+    const logs = [
+      log('only0', now - 1000, 0),
+      log('soft', now - 1000, 1), // 模糊
+      log('mid', now - 1000, 2), // 一般
+      log('good', now - 1000, 3),
+    ];
+    expect(new Set(deriveWrongCardIds(logs, 14, now, 0))).toEqual(new Set(['only0']));
+    expect(new Set(deriveWrongCardIds(logs, 14, now, 1))).toEqual(new Set(['only0', 'soft']));
+    expect(new Set(deriveWrongCardIds(logs, 14, now, 2))).toEqual(new Set(['only0', 'soft', 'mid']));
+  });
 });
 
 describe('summarizeWrong', () => {
@@ -59,5 +71,16 @@ describe('summarizeWrong', () => {
   it('最近一次 grade>=2 的卡不进入', () => {
     const logs = [log('x', now - 2000, 0), log('x', now - 1000, 3)];
     expect(summarizeWrong(logs, 14, now)).toEqual([]);
+  });
+
+  it('maxGrade=2 时 grade=2 也计入错次', () => {
+    const logs = [
+      log('a', now - 1000, 0),
+      log('a', now - 500, 2), // 最近一次=2，maxGrade=2 时应进入
+    ];
+    const r = summarizeWrong(logs, 14, now, 2);
+    expect(r).toHaveLength(1);
+    expect(r[0].cardId).toBe('a');
+    expect(r[0].wrongCount).toBe(2); // 0 和 2 都算
   });
 });

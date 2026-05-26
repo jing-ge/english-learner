@@ -7,11 +7,13 @@ import { useSettingsStore } from '@/stores/settings';
 import { highlightSentence } from '@/domain/text/highlight';
 import { parseExchange, morphLabels, lookupRoots } from '@/platform/morpho';
 import { parseTagBadges, freqBucket } from '@/platform/wordMeta';
-import type { WordRecord } from '@/data/types';
+import MemoryCurve from '@/components/MemoryCurve.vue';
+import type { WordRecord, CardRecord } from '@/data/types';
 import type { Grade } from '@/domain/types';
 
 const props = defineProps<{
   word: WordRecord;
+  card: CardRecord | null;
   revealed: boolean;
   feedback?: 'wrong' | 'right' | 'soft' | null;
 }>();
@@ -232,6 +234,15 @@ const swipeHint = computed<'left' | 'right' | null>(() => {
             <div v-if="ex.zh" class="zh">{{ ex.zh }}</div>
           </div>
         </div>
+
+        <MemoryCurve
+          v-if="card && card.reps > 0 && card.lastReviewedAt"
+          :stability="card.stability"
+          :elapsed-days="(Date.now() - card.lastReviewedAt) / 86_400_000"
+          :last-reviewed-at="card.lastReviewedAt"
+          :due-at="card.dueAt"
+          :now="Date.now()"
+        />
       </section>
     </div>
     </div>
