@@ -1,0 +1,1 @@
+import{x as c,aj as o,D as u,ap as r}from"./index-Bmmv98my.js";const f=c("settings",()=>{const t=o({...u}),e=o(!1);async function a(){t.value=await r.get(),e.value=!0}async function s(n){t.value=await r.update(n)}return{settings:t,loaded:e,load:a,update:s}}),p=(t,e)=>{const a=t.__vccOpts||t;for(const[s,n]of e)a[s]=n;return a};export{p as _,f as u};

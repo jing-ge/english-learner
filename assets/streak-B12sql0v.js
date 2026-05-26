@@ -1,0 +1,1 @@
+function a(t){const e=new Date(t);return e.setHours(0,0,0,0),e.getTime()}function u(t,e=Date.now()){if(t.length===0)return 0;const n=new Set;for(const c of t)n.add(a(c.reviewedAt));const r=a(e);let o=r,s=0;for(n.has(r)||(o=r-864e5);n.has(o);)s+=1,o-=864e5;return s}export{u as c};
