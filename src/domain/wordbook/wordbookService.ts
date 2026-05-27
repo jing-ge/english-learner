@@ -16,10 +16,15 @@ export async function enableWordbook(wordbookId: string, now: number = Date.now(
   added: number;
 }> {
   const words = await wordRepo.listByWordbook(wordbookId);
+  const ids = words.map((w) => w.id);
+  const existingCards = await cardRepo.bulkGet(ids);
+  const existingMap = new Map<string, CardRecord>();
+  for (const c of existingCards) if (c) existingMap.set(c.id, c);
+
   const newCards: CardRecord[] = [];
   const toUpdate: CardRecord[] = [];
   for (const w of words) {
-    const existing = await cardRepo.getById(w.id);
+    const existing = existingMap.get(w.id);
     if (existing) {
       if (!existing.wordbooks.includes(wordbookId)) {
         toUpdate.push({ ...existing, wordbooks: [...existing.wordbooks, wordbookId] });
@@ -55,11 +60,13 @@ export async function enableWordbook(wordbookId: string, now: number = Date.now(
  * 返回值 removed 仅统计"真正删卡"数（不含仅移除归属的）。
  */
 export async function disableWordbook(wordbookId: string): Promise<{ removed: number }> {
-  const cands = await wordRepo.listByWordbook(wordbookId);
+  const words = await wordRepo.listByWordbook(wordbookId);
+  const ids = words.map((w) => w.id);
+  const cards = await cardRepo.bulkGet(ids);
+
   const toDelete: string[] = [];
   const toUpdate: CardRecord[] = [];
-  for (const w of cands) {
-    const card = await cardRepo.getById(w.id);
+  for (const card of cards) {
     if (!card || card.state !== 'new') continue;
     if (card.wordbooks.length <= 1) {
       toDelete.push(card.id);
@@ -109,11 +116,16 @@ export async function createUserWordbook(
   };
   await wordbookRepo.upsert(book);
 
+  const wordIds = drafts.map((d) => d.word.toLowerCase());
+  const existingList = await wordRepo.bulkGet(wordIds);
+  const existingMap = new Map<string, WordRecord>();
+  for (const e of existingList) if (e) existingMap.set(e.id, e);
+
   const toCreate: WordRecord[] = [];
   const toMerge: WordRecord[] = [];
   for (const d of drafts) {
     const wordId = d.word.toLowerCase();
-    const existing = await wordRepo.getById(wordId);
+    const existing = existingMap.get(wordId);
     if (existing) {
       if (!existing.wordbooks.includes(wordbookId)) {
         toMerge.push({ ...existing, wordbooks: [...existing.wordbooks, wordbookId] });
@@ -149,6 +161,11 @@ export async function deleteUserWordbook(wordbookId: string): Promise<{ removed:
   if (book.source !== 'user') throw new Error('内置词书不可删除');
 
   const words = await wordRepo.listByWordbook(wordbookId);
+  const wordIds = words.map((w) => w.id);
+  const cards = await cardRepo.bulkGet(wordIds);
+  const cardMap = new Map<string, CardRecord>();
+  for (const c of cards) if (c) cardMap.set(c.id, c);
+
   const wordsToDelete: string[] = [];
   const wordsToMerge: WordRecord[] = [];
   const cardsToDelete: string[] = [];
@@ -160,7 +177,7 @@ export async function deleteUserWordbook(wordbookId: string): Promise<{ removed:
     } else {
       wordsToMerge.push({ ...w, wordbooks: w.wordbooks.filter((id) => id !== wordbookId) });
     }
-    const card = await cardRepo.getById(w.id);
+    const card = cardMap.get(w.id);
     if (card) {
       if (card.wordbooks.length <= 1) {
         cardsToDelete.push(card.id);

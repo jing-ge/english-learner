@@ -102,39 +102,37 @@ async function loadCurrentWord() {
 }
 
 async function enrichWord(w: WordRecord) {
-  // 1) 本地 ECDICT：优先填中文释义/音标 + 元数据（tag/bnc/frq）。命中后大概率不再需要走在线，省 5xx/限流。
+  const patch: Partial<WordRecord> = {};
+
+  // 1) 本地 ECDICT：优先填中文释义/音标 + 元数据
   try {
     const local = await lookupLocalDict(w.word);
     if (local) {
-      await wordRepo.patchEmptyFields(w.id, {
-        phonetic: local.phonetic,
-        translations: local.translations.length ? local.translations : undefined,
-        exchange: local.exchange,
-        tag: local.tag,
-        bnc: local.bnc,
-        frq: local.frq,
-      });
+      if (local.phonetic && !w.phonetic) patch.phonetic = local.phonetic;
+      if (local.translations.length && !w.translations?.length) patch.translations = local.translations;
+      if (local.exchange && !w.exchange) patch.exchange = local.exchange;
+      if (local.tag && !w.tag) patch.tag = local.tag;
+      if (local.bnc != null && w.bnc == null) patch.bnc = local.bnc;
+      if (local.frq != null && w.frq == null) patch.frq = local.frq;
     }
-  } catch {
-    /* 本地字典不可用静默忽略 */
-  }
+  } catch { /* ignore */ }
 
-  // 2) Free Dictionary：补 audioUrl / 英文 examples。中文释义已被本地填了，patchEmptyFields 不会覆盖。
+  // 2) Free Dictionary：补 audioUrl / 英文 examples
   try {
     const r = await fetchDictionary(w.word);
     if (r) {
-      await wordRepo.patchEmptyFields(w.id, {
-        phonetic: r.phonetic,
-        audioUrl: r.audioUrl,
-        examples: r.examples,
-      });
+      if (r.phonetic && !w.phonetic && !patch.phonetic) patch.phonetic = r.phonetic;
+      if (r.audioUrl && !w.audioUrl) patch.audioUrl = r.audioUrl;
+      if (r.examples?.length && !w.examples?.length) patch.examples = r.examples;
     }
-  } catch {
-    /* 离线/限流：静默兜底（用 platform/tts.ts 系统语音） */
-  }
+  } catch { /* ignore */ }
 
-  if (currentWord.value?.id === w.id) {
-    currentWord.value = (await wordRepo.getById(w.id)) ?? currentWord.value;
+  if (Object.keys(patch).length > 0) {
+    const merged = { ...w, ...patch };
+    await wordRepo.bulkUpsert([merged]);
+    if (currentWord.value?.id === w.id) {
+      currentWord.value = merged;
+    }
   }
 }
 

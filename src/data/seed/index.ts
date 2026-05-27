@@ -57,18 +57,22 @@ export async function waitForSeeds(): Promise<void> {
  * 导出供测试等待，生产环境由 ensureBuiltinSeeds 内部 fire-and-forget。
  */
 export async function loadDerivedAndEnrich(byId: Map<string, { id: string; source: string; seedVersion?: number }>): Promise<void> {
-  // 先尝试加载所有派生词书；只有 ky 加载成功后才执行 kaoyan→ky 迁移
   let kyLoaded = false;
 
-  for (const spec of DERIVED_BUILTINS) {
+  // 需要加载的词书并行查询 ECDICT + 加载
+  const toLoad = DERIVED_BUILTINS.filter((spec) => {
     const cur = byId.get(spec.id);
     if (cur && (cur.seedVersion ?? 0) >= spec.derivedVersion) {
       if (spec.id === 'ky') kyLoaded = true;
-      continue;
+      return false;
     }
-    try {
+    return true;
+  });
+
+  const results = await Promise.allSettled(
+    toLoad.map(async (spec) => {
       const rows = await listByTag(spec.tag);
-      if (rows.length === 0) continue;
+      if (rows.length === 0) return null;
       const words: SeedWord[] = rows.map((r, i) => ({
         word: r.word,
         phonetic: r.phonetic,
@@ -82,9 +86,14 @@ export async function loadDerivedAndEnrich(byId: Map<string, { id: string; sourc
         version: spec.derivedVersion,
         words,
       });
-      if (spec.id === 'ky') kyLoaded = true;
-    } catch (err) {
-      console.warn(`[ensureBuiltinSeeds] derived ${spec.id} skipped:`, err);
+      return spec.id;
+    }),
+  );
+
+  for (const r of results) {
+    if (r.status === 'fulfilled' && r.value === 'ky') kyLoaded = true;
+    else if (r.status === 'rejected') {
+      console.warn('[ensureBuiltinSeeds] derived load failed:', r.reason);
     }
   }
 
@@ -156,18 +165,16 @@ async function migrateSeedToDerived(
  */
 async function enrichFreqFromEcdict(): Promise<void> {
   const db = getDb();
+  // 用 filter 在 IDB 层跳过已有 bnc 的记录，避免全表物化到 JS
   const missing: { id: string; word: string }[] = [];
-  await db.words.each((w) => {
-    if (w.bnc === undefined || w.bnc === null) {
-      missing.push({ id: w.id, word: w.word });
-    }
-  });
+  await db.words
+    .filter((w) => w.bnc === undefined || w.bnc === null)
+    .each((w) => missing.push({ id: w.id, word: w.word }));
   if (missing.length === 0) return;
 
   const freqMap = batchLookupFreq(missing.map((m) => m.word));
   if (freqMap.size === 0) return;
 
-  // 批量读出现有记录，内存中合并 bnc/frq，再 bulkPut
   const ids = missing.map((m) => m.id);
   const existing = await db.words.bulkGet(ids);
   const toPut = existing
