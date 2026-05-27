@@ -6,6 +6,8 @@ import {
   showFailToast,
   showConfirmDialog,
 } from 'vant';
+import 'vant/es/toast/style';
+import 'vant/es/dialog/style';
 import { useSettingsStore } from '@/stores/settings';
 import { exportBackupJson, importBackupJson } from '@/domain/backup/exportImport';
 import {

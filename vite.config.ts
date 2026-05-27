@@ -21,7 +21,7 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/english-learner/',
+        start_url: process.env.CAPACITOR ? './' : '/english-learner/',
         icons: [
           {
             src: 'pwa-192x192.png',

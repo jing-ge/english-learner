@@ -2,6 +2,7 @@ import { wordbookRepo } from '../repositories/wordbookRepo';
 import { getDb } from '../db';
 import { loadSeedWordbook, type SeedWord } from './loader';
 import { listByTag, batchLookupFreq, type EcdictTag } from '../../platform/localDict';
+import type { WordRecord } from '../types';
 
 /**
  * 启动时确保内置词库已加载到 IndexedDB。
@@ -164,38 +165,27 @@ async function migrateSeedToDerived(
 /**
  * 兜底：从 ECDICT 补充 words 表中缺失 bnc 的词条词频数据。
  * 新用户已在 loadSeedWordbook 时顺带写入 bnc/frq，此函数仅服务老用户升级场景。
- * 先采样检查是否有缺失，没有则直接跳过全表扫描。
+ * 用 cursor 流式遍历 + 分批 bulkPut，一次全表扫描无遗漏。
  */
 async function enrichFreqFromEcdict(): Promise<void> {
   const db = getDb();
-  // 快速采样：看前 100 条是否有缺 bnc 的，没有则大概率已补全，跳过
-  const sample = await db.words.limit(100).toArray();
-  const hasMissing = sample.some((w) => w.bnc === undefined || w.bnc === null);
-  if (!hasMissing) {
-    // 再检查总数，如果词表很小（<100），也不需要补
-    const total = await db.words.count();
-    if (total <= 100) return;
-    // 大表时再抽尾部检查
-    const tail = await db.words.offset(Math.max(0, total - 100)).limit(100).toArray();
-    if (!tail.some((w) => w.bnc === undefined || w.bnc === null)) return;
-  }
-
-  // 确认有缺失，分批全表扫描补全
   const BATCH = 500;
-  let offset = 0;
+  const pending: WordRecord[] = [];
 
-  while (true) {
-    const batch = await db.words.offset(offset).limit(BATCH).toArray();
-    if (batch.length === 0) break;
-    offset += batch.length;
+  await db.words
+    .filter((w) => w.bnc === undefined || w.bnc === null)
+    .each((w) => {
+      pending.push(w);
+    });
 
-    const missing = batch.filter((w) => w.bnc === undefined || w.bnc === null);
-    if (missing.length === 0) continue;
+  if (pending.length === 0) return;
 
-    const freqMap = batchLookupFreq(missing.map((w) => w.word));
+  for (let i = 0; i < pending.length; i += BATCH) {
+    const slice = pending.slice(i, i + BATCH);
+    const freqMap = batchLookupFreq(slice.map((w) => w.word));
     if (freqMap.size === 0) continue;
 
-    const toPut = missing
+    const toPut = slice
       .map((w) => {
         const f = freqMap.get(w.word);
         if (!f) return null;

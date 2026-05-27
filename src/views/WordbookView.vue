@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { showToast, showSuccessToast, showFailToast, showConfirmDialog } from 'vant';
+import 'vant/es/toast/style';
+import 'vant/es/dialog/style';
 import { wordbookRepo } from '@/data/repositories/wordbookRepo';
 import { useSettingsStore } from '@/stores/settings';
 import { useProgressStore } from '@/stores/progress';
