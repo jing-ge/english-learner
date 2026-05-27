@@ -4,12 +4,12 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
+  base: '/english-learner/',
   plugins: [
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
-      base: '/english-learner/',
       manifest: {
         name: 'English Learner',
         short_name: 'EnglishLearner',
@@ -21,13 +21,13 @@ export default defineConfig({
         start_url: '/english-learner/',
         icons: [
           {
-            src: '/pwa-192x192.png',
+            src: 'pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/pwa-512x512.png',
+            src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable',
@@ -39,7 +39,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         // SW precache 单文件上限（默认 2MB），保护用以防有人误把字典加进 globPatterns
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
-        navigateFallback: '/index.html',
+        navigateFallback: 'index.html',
         runtimeCaching: [
           {
             // Free Dictionary API：网络优先，回退缓存（24h 有效）
