@@ -4,7 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
-  base: '/english-learner/',
+  base: process.env.CAPACITOR ? '/' : '/english-learner/',
   plugins: [
     vue(),
     VitePWA({

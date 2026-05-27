@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
+    "build:android": "vue-tsc -b && CAPACITOR=1 vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
