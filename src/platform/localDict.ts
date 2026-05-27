@@ -17,8 +17,9 @@ import type { Translation } from '@/data/types';
  *   - tag: cet4/ky/ielts/toefl/gre/...
  */
 
-const DB_URL = '/dict/ecdict.db';
-const SQL_WASM_URL = '/dict/sql-wasm.wasm';
+const base = import.meta.env.BASE_URL;
+const DB_URL = `${base}dict/ecdict.db`;
+const SQL_WASM_URL = `${base}dict/sql-wasm.wasm`;
 const DB_CACHE_KEY = 'ecdict-v1';
 const IDB_NAME = 'el-asset-cache';
 const IDB_STORE = 'blobs';
@@ -80,7 +81,8 @@ export async function ensureLocalDict(): Promise<Database | null> {
   if (_loadPromise) return _loadPromise;
   _loadPromise = (async () => {
     try {
-      const SQL: SqlJsStatic = await (await import('sql.js')).default({ locateFile: () => SQL_WASM_URL });
+      const initSqlJs = (await import('sql.js')).default;
+      const SQL: SqlJsStatic = await initSqlJs({ locateFile: () => SQL_WASM_URL });
       let bytes = await readCachedBytes(DB_CACHE_KEY);
       if (!bytes) {
         bytes = await fetchDbBytes();

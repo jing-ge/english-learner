@@ -1,14 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import {
-  CellGroup,
-  Cell,
-  Stepper,
-  RadioGroup,
-  Radio,
-  Switch,
-  Popup,
-  TimePicker,
   showToast,
   showSuccessToast,
   showFailToast,
@@ -157,78 +149,78 @@ async function onFileChosen(e: Event) {
       <div class="hero-sub">个性化你的学习节奏</div>
     </header>
 
-    <CellGroup inset class="group" title="学习量">
-      <Cell title="每日新词数" :label="`${dailyNewCount} 词 / 天`">
+    <van-cell-group inset class="group" title="学习量">
+      <van-cell title="每日新词数" :label="`${dailyNewCount} 词 / 天`">
         <template #right-icon>
-          <Stepper v-model="dailyNewCount" :min="5" :max="100" :step="5" integer />
+          <van-stepper v-model="dailyNewCount" :min="5" :max="100" :step="5" integer />
         </template>
-      </Cell>
-      <Cell title="每日复习上限" :label="`${dailyReviewCap} 词 / 天`">
+      </van-cell>
+      <van-cell title="每日复习上限" :label="`${dailyReviewCap} 词 / 天`">
         <template #right-icon>
-          <Stepper v-model="dailyReviewCap" :min="20" :max="500" :step="10" integer />
+          <van-stepper v-model="dailyReviewCap" :min="20" :max="500" :step="10" integer />
         </template>
-      </Cell>
-    </CellGroup>
+      </van-cell>
+    </van-cell-group>
 
-    <CellGroup inset class="group" title="错词判定">
-      <Cell title="错词窗口" :label="`近 ${wrongWindowDays} 天的复习记录`">
+    <van-cell-group inset class="group" title="错词判定">
+      <van-cell title="错词窗口" :label="`近 ${wrongWindowDays} 天的复习记录`">
         <template #right-icon>
-          <Stepper v-model="wrongWindowDays" :min="7" :max="30" :step="1" integer />
+          <van-stepper v-model="wrongWindowDays" :min="7" :max="30" :step="1" integer />
         </template>
-      </Cell>
-      <Cell title="错词阈值" label="评分小于等于此值视为错词">
+      </van-cell>
+      <van-cell title="错词阈值" label="评分小于等于此值视为错词">
         <template #right-icon>
-          <RadioGroup v-model="wrongMaxGrade" direction="horizontal">
-            <Radio :name="0">仅不会</Radio>
-            <Radio :name="1">+陌生</Radio>
-            <Radio :name="2">+模糊</Radio>
-          </RadioGroup>
+          <van-radio-group v-model="wrongMaxGrade" direction="horizontal">
+            <van-radio :name="0">仅不会</van-radio>
+            <van-radio :name="1">+陌生</van-radio>
+            <van-radio :name="2">+模糊</van-radio>
+          </van-radio-group>
         </template>
-      </Cell>
-    </CellGroup>
+      </van-cell>
+    </van-cell-group>
 
-    <CellGroup inset class="group" title="发音">
-      <Cell title="口音">
+    <van-cell-group inset class="group" title="发音">
+      <van-cell title="口音">
         <template #right-icon>
-          <RadioGroup v-model="ttsAccent" direction="horizontal">
-            <Radio name="us">美式</Radio>
-            <Radio name="uk">英式</Radio>
-          </RadioGroup>
+          <van-radio-group v-model="ttsAccent" direction="horizontal">
+            <van-radio name="us">美式</van-radio>
+            <van-radio name="uk">英式</van-radio>
+          </van-radio-group>
         </template>
-      </Cell>
-    </CellGroup>
+      </van-cell>
+    </van-cell-group>
 
-    <CellGroup inset class="group" title="复习强度">
-      <Cell title="目标留存率" label="越高复习越频繁，记得越牢">
+    <van-cell-group inset class="group" title="复习强度">
+      <van-cell title="目标留存率" label="越高复习越频繁，记得越牢">
         <template #right-icon>
-          <RadioGroup v-model="desiredRetention" direction="horizontal">
-            <Radio :name="0.85">宽松</Radio>
-            <Radio :name="0.9">平衡</Radio>
-            <Radio :name="0.95">严格</Radio>
-          </RadioGroup>
+          <van-radio-group v-model="desiredRetention" direction="horizontal">
+            <van-radio :name="0.85">宽松</van-radio>
+            <van-radio :name="0.9">平衡</van-radio>
+            <van-radio :name="0.95">严格</van-radio>
+          </van-radio-group>
         </template>
-      </Cell>
-    </CellGroup>
+      </van-cell>
+    </van-cell-group>
 
-    <CellGroup inset class="group" title="提醒">
-      <Cell title="每日学习提醒" :label="reminderEnabled ? `每天 ${reminderTimeLabel} · 浏览器开启时生效` : '关闭'">
+    <van-cell-group inset class="group" title="提醒">
+      <van-cell title="每日学习提醒" :label="reminderEnabled ? `每天 ${reminderTimeLabel} · 浏览器开启时生效` : '关闭'">
         <template #right-icon>
-          <Switch :model-value="reminderEnabled" @update:model-value="toggleReminder" />
+          <van-switch :model-value="reminderEnabled" @update:model-value="toggleReminder" />
         </template>
-      </Cell>
-      <Cell
+      </van-cell>
+      <van-cell
         v-if="reminderEnabled"
         title="提醒时间"
         :value="reminderTimeLabel"
         is-link
         @click="showTimePicker = true"
       />
-    </CellGroup>
+    </van-cell-group>
 
-    <CellGroup inset class="group" title="数据">
-      <Cell title="导出备份" is-link @click="doExport" />
-      <Cell title="导入备份（覆盖）" is-link @click="pickImport" />
-    </CellGroup>
+    <van-cell-group inset class="group" title="数据">
+      <van-cell title="导出备份" is-link @click="doExport" />
+      <van-cell title="导入备份（覆盖）" is-link @click="pickImport" />
+    </van-cell-group>
 
     <input
       ref="fileInput"
@@ -238,15 +230,15 @@ async function onFileChosen(e: Event) {
       @change="onFileChosen"
     />
 
-    <Popup v-model:show="showTimePicker" round position="bottom">
-      <TimePicker
+    <van-popup v-model:show="showTimePicker" round position="bottom">
+      <van-time-picker
         v-model="pickerColumns"
         title="选择提醒时间"
         :columns-type="['hour', 'minute']"
         @confirm="onTimeConfirm"
         @cancel="showTimePicker = false"
       />
-    </Popup>
+    </van-popup>
   </div>
 </template>
 

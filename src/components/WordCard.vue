@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { Icon } from 'vant';
 import { youdaoTtsUrl } from '@/platform/tts';
 import { playAudio } from '@/platform/audioCache';
 import { useSettingsStore } from '@/stores/settings';
@@ -147,7 +146,7 @@ function onPointerUp(e: PointerEvent) {
         <div class="word-row">
           <span class="word">{{ word.word }}</span>
           <button class="speak" @click="pronounce" aria-label="发音">
-            <Icon name="volume-o" size="22" />
+            <van-icon name="volume-o" size="22" />
           </button>
         </div>
         <div v-if="phonetic" class="phonetic">{{ phonetic }}</div>
@@ -159,7 +158,7 @@ function onPointerUp(e: PointerEvent) {
         <div class="word-row">
           <span class="word word-sm">{{ word.word }}</span>
           <button class="speak" @click="pronounce" aria-label="发音">
-            <Icon name="volume-o" size="20" />
+            <van-icon name="volume-o" size="20" />
           </button>
         </div>
         <div v-if="phonetic" class="phonetic phonetic-sm">{{ phonetic }}</div>

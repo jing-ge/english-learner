@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { Switch, Popup, Button, showToast, showSuccessToast, showFailToast, showConfirmDialog } from 'vant';
+import { showToast, showSuccessToast, showFailToast, showConfirmDialog } from 'vant';
 import { wordbookRepo } from '@/data/repositories/wordbookRepo';
 import { useSettingsStore } from '@/stores/settings';
 import { useProgressStore } from '@/stores/progress';
@@ -150,7 +150,7 @@ function initials(name: string): string {
           <div class="book-desc">{{ book.description || '内置词书' }}</div>
         </div>
         <div class="book-actions">
-          <Switch
+          <van-switch
             :model-value="activeSet.has(book.id)"
             @update:model-value="(v: boolean) => toggle(book, v)"
           />
@@ -170,7 +170,7 @@ function initials(name: string): string {
     </div>
 
     <!-- 导入弹窗 -->
-    <Popup v-model:show="showImport" round position="bottom" :style="{ height: '80vh' }">
+    <van-popup v-model:show="showImport" round position="bottom" :style="{ height: '80vh' }">
       <div class="imp">
         <div class="imp-head">
           <div class="imp-title">自建词书</div>
@@ -197,12 +197,12 @@ function initials(name: string): string {
           </div>
         </div>
         <div class="imp-foot">
-          <Button block round type="primary" :loading="importing" :disabled="!previewParsed.drafts.length || !importName.trim()" @click="doImport">
+          <van-button block round type="primary" :loading="importing" :disabled="!previewParsed.drafts.length || !importName.trim()" @click="doImport">
             创建并保存
-          </Button>
+          </van-button>
         </div>
       </div>
-    </Popup>
+    </van-popup>
   </div>
 </template>
 

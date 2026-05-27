@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { NavBar, Empty } from 'vant';
 import { reviewLogRepo } from '@/data/repositories/reviewLogRepo';
 import { wordRepo } from '@/data/repositories/wordRepo';
 import { summarizeWrong, type WrongStat } from '@/domain/wrongbook/wrongBook';
@@ -47,7 +46,7 @@ function startWrongStudy() {
 
 <template>
   <div class="wrong">
-    <NavBar title="错词本" left-text="返回" left-arrow @click-left="$router.back()" />
+    <van-nav-bar title="错词本" left-text="返回" left-arrow @click-left="$router.back()" />
 
     <header class="head">
       <div class="head-num">
@@ -63,7 +62,7 @@ function startWrongStudy() {
 
     <div v-if="loading" class="state-center">加载中…</div>
     <div v-else-if="total === 0" class="empty-wrap">
-      <Empty description="近 14 天没有错词，继续保持！" />
+      <van-empty description="近 14 天没有错词，继续保持！" />
     </div>
     <ul v-else class="list">
       <li

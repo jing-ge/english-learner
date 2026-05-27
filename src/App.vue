@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Tabbar, TabbarItem } from 'vant';
 
 const route = useRoute();
 const router = useRouter();
@@ -25,7 +24,7 @@ function jump(name: string) {
 <template>
   <div class="app-shell">
     <router-view class="app-page" :class="{ 'has-tabbar': showTabbar }" />
-    <Tabbar
+    <van-tabbar
       v-if="showTabbar"
       :model-value="activeTab"
       active-color="var(--el-primary-500)"
@@ -34,11 +33,11 @@ function jump(name: string) {
       route
       @change="jump"
     >
-      <TabbarItem name="home" icon="home-o">学习</TabbarItem>
-      <TabbarItem name="wordbook" icon="bookmark-o">词库</TabbarItem>
-      <TabbarItem name="stats" icon="chart-trending-o">统计</TabbarItem>
-      <TabbarItem name="settings" icon="setting-o">我的</TabbarItem>
-    </Tabbar>
+      <van-tabbar-item name="home" icon="home-o">学习</van-tabbar-item>
+      <van-tabbar-item name="wordbook" icon="bookmark-o">词库</van-tabbar-item>
+      <van-tabbar-item name="stats" icon="chart-trending-o">统计</van-tabbar-item>
+      <van-tabbar-item name="settings" icon="setting-o">我的</van-tabbar-item>
+    </van-tabbar>
   </div>
 </template>
 

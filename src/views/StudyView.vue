@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, shallowRef, triggerRef } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { NavBar, Loading } from 'vant';
 import { waitForSeeds } from '@/data/seed';
 import WordCard from '@/components/WordCard.vue';
 import AnswerBar from '@/components/AnswerBar.vue';
@@ -232,7 +231,7 @@ function confettiStyle(i: number) {
 
 <template>
   <div class="study">
-    <NavBar
+    <van-nav-bar
       :title="mode === 'wrong' ? '错词复习' : '学习'"
       left-text="返回"
       left-arrow
@@ -264,7 +263,7 @@ function confettiStyle(i: number) {
           <span class="ring-text">{{ displayedDone }}<span class="ring-total">/{{ sessionStats.total }}</span></span>
         </div>
       </template>
-    </NavBar>
+    </van-nav-bar>
 
     <div
       v-if="!loading && phase !== 'done' && sessionStats.total > 0"
@@ -274,7 +273,7 @@ function confettiStyle(i: number) {
     </div>
 
     <div v-if="loading" class="state-center">
-      <Loading type="spinner" />
+      <van-loading type="spinner" />
     </div>
 
     <template v-else-if="phase === 'done'">
