@@ -6,7 +6,7 @@ import { VantResolver } from '@vant/auto-import-resolver';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
-  base: process.env.CAPACITOR ? '/' : '/english-learner/',
+  base: process.env.CAPACITOR ? './' : '/english-learner/',
   plugins: [
     vue(),
     Components({ resolvers: [VantResolver()] }),
