@@ -18,8 +18,6 @@
  *   1: 原型的派生原因 (s/p/i/3/r/t/d/...)
  */
 
-import wordrootData from '@/data/seed/wordroots.json';
-
 export type ExchangeKey = 'p' | 'd' | 'i' | '3' | 'r' | 't' | 's' | '0' | '1';
 
 export interface MorphForms {
@@ -98,7 +96,14 @@ interface WordRootDb {
   wordToRoots: Record<string, string[]>;
 }
 
-const db = wordrootData as unknown as WordRootDb;
+let dbCache: WordRootDb | null = null;
+
+async function loadDb(): Promise<WordRootDb> {
+  if (dbCache) return dbCache;
+  const mod = await import('@/data/seed/wordroots.json');
+  dbCache = mod.default as unknown as WordRootDb;
+  return dbCache;
+}
 
 export interface RootLookupResult {
   root: string;
@@ -112,7 +117,8 @@ export interface RootLookupResult {
  * 查一个词的词根列表。同一个词可能挂多个词根（如前缀 + 词根 + 后缀）。
  * 返回的 siblings 是同根词中**去掉自己**后的前 8 个。
  */
-export function lookupRoots(word: string): RootLookupResult[] {
+export async function lookupRoots(word: string): Promise<RootLookupResult[]> {
+  const db = await loadDb();
   const wl = word.toLowerCase();
   const rootIds = db.wordToRoots[wl];
   if (!rootIds || rootIds.length === 0) return [];

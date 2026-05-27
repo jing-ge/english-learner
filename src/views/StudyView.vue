@@ -50,8 +50,8 @@ onMounted(async () => {
       now,
       settings.settings.wrongMaxGrade,
     );
-    const cards = await Promise.all(wrongIds.map((id) => cardRepo.getById(id)));
-    queue = cards.filter((c): c is CardRecord => Boolean(c));
+    const cards = await cardRepo.bulkGet(wrongIds);
+    queue = cards;
   } else {
     const activeIds = settings.settings.activeWordbookIds;
     const activeSet = new Set(activeIds);

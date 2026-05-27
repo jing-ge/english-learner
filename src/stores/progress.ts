@@ -12,10 +12,10 @@ function startOfTodayMs(now: number = Date.now()): number {
 }
 
 export const useProgressStore = defineStore('progress', () => {
-  const dueReviewCount = ref(0); // 今天到期且未学的复习数
-  const newCardsAvailable = ref(0); // 还可纳入的新词数（按 dailyNewCount 上限）
-  const reviewedToday = ref(0); // 今天已复习数（来自 reviewLogs）
-  const learnedNewToday = ref(0); // 今天已学新词数（粗略：firstReviewInSession 的 reviewLogs 子集）
+  const dueReviewCount = ref(0);
+  const newCardsAvailable = ref(0);
+  const reviewedToday = ref(0);
+  const learnedNewToday = ref(0);
   const lastRefreshAt = ref(0);
 
   const todayNewProgress = computed(() => ({
@@ -34,17 +34,15 @@ export const useProgressStore = defineStore('progress', () => {
 
     const dayStart = startOfTodayMs(now);
 
-    const [dueReviews, newCards, todaysLogs] = await Promise.all([
+    const [dueReviews, newCount, todaysLogs] = await Promise.all([
       cardRepo.listDueReviews(now),
-      cardRepo.listByState('new'),
+      cardRepo.countByState('new'),
       reviewLogRepo.listSince(dayStart),
     ]);
 
     dueReviewCount.value = dueReviews.length;
-    newCardsAvailable.value = Math.min(newCards.length, settings.settings.dailyNewCount);
+    newCardsAvailable.value = Math.min(newCount, settings.settings.dailyNewCount);
     reviewedToday.value = todaysLogs.length;
-
-    // "新词被学过"近似定义：今日 log 中 prevInterval=0 的记录数
     learnedNewToday.value = todaysLogs.filter((l) => l.prevInterval === 0).length;
 
     lastRefreshAt.value = now;

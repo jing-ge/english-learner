@@ -16,8 +16,8 @@ const streak = ref(0);
 const loading = ref(true);
 
 onMounted(async () => {
-  await waitForSeeds();
-  await settings.load();
+  // waitForSeeds 和 settings.load 无依赖，并行执行
+  const [,] = await Promise.all([waitForSeeds(), settings.load()]);
   await progress.refresh();
   const sixtyDaysAgo = Date.now() - 60 * 24 * 60 * 60 * 1000;
   const recent = await reviewLogRepo.listSince(sixtyDaysAgo);

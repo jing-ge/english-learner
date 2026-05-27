@@ -7,6 +7,11 @@ export const cardRepo = {
     return getDb().cards.get(id);
   },
 
+  async bulkGet(ids: string[]): Promise<CardRecord[]> {
+    const results = await getDb().cards.bulkGet(ids);
+    return results.filter((c): c is CardRecord => c !== undefined);
+  },
+
   /**
    * 按启用词书过滤所有卡。空数组视为"取全部"（保持与旧版兼容）。
    * 用 *wordbooks 多值索引 + .distinct() 避免一卡属多本时重复返回。
@@ -26,6 +31,10 @@ export const cardRepo = {
       .where('[state+dueAt]')
       .between(['review', -Infinity], ['review', now], true, true);
     return limit !== undefined ? q.limit(limit).toArray() : q.toArray();
+  },
+
+  async countByState(state: CardState): Promise<number> {
+    return getDb().cards.where('state').equals(state).count();
   },
 
   async listByState(state: CardState): Promise<CardRecord[]> {

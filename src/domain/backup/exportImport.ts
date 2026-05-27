@@ -71,6 +71,7 @@ export async function importBackup(payload: BackupPayload): Promise<ImportResult
     }
     if (payload.userWordbooks.length) await db.wordbooks.bulkPut(payload.userWordbooks);
     await db.settings.put(payload.settings);
+    settingsRepo._clearCache();
   });
   return {
     cards: payload.cards.length,

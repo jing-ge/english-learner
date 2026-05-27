@@ -62,13 +62,12 @@ describe('morphLabels', () => {
 });
 
 describe('lookupRoots', () => {
-  it('未知词返回空数组', () => {
-    expect(lookupRoots('xyzzy_not_a_word')).toEqual([]);
+  it('未知词返回空数组', async () => {
+    expect(await lookupRoots('xyzzy_not_a_word')).toEqual([]);
   });
 
-  it('查到词根时返回结构化结果且 siblings 不含自己', () => {
-    // 'homicide' 是 hom 词根的 example
-    const r = lookupRoots('homicide');
+  it('查到词根时返回结构化结果且 siblings 不含自己', async () => {
+    const r = await lookupRoots('homicide');
     expect(r.length).toBeGreaterThan(0);
     const hom = r.find((x) => x.root === 'hom');
     expect(hom).toBeTruthy();
@@ -77,9 +76,9 @@ describe('lookupRoots', () => {
     expect(hom!.siblings.length).toBeGreaterThan(0);
   });
 
-  it('大小写不敏感', () => {
-    const a = lookupRoots('homicide');
-    const b = lookupRoots('Homicide');
+  it('大小写不敏感', async () => {
+    const a = await lookupRoots('homicide');
+    const b = await lookupRoots('Homicide');
     expect(a).toEqual(b);
   });
 });

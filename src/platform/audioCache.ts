@@ -39,14 +39,18 @@ export async function playAudio(
   try {
     const cached = await getCachedBlob(url);
     if (cached) {
-      audio.src = URL.createObjectURL(cached);
+      const blobUrl = URL.createObjectURL(cached);
+      audio.src = blobUrl;
+      audio.onloadeddata = () => URL.revokeObjectURL(blobUrl);
       await audio.play();
       return;
     }
 
     const blob = await fetchAndCache(url);
     if (blob) {
-      audio.src = URL.createObjectURL(blob);
+      const blobUrl = URL.createObjectURL(blob);
+      audio.src = blobUrl;
+      audio.onloadeddata = () => URL.revokeObjectURL(blobUrl);
       await audio.play();
       return;
     }

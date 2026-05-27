@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Icon } from 'vant';
 import { youdaoTtsUrl } from '@/platform/tts';
 import { playAudio } from '@/platform/audioCache';
 import { useSettingsStore } from '@/stores/settings';
 import { highlightSentence } from '@/domain/text/highlight';
 import { parseExchange, morphLabels, lookupRoots } from '@/platform/morpho';
+import type { RootLookupResult } from '@/platform/morpho';
 import { parseTagBadges, freqBucket } from '@/platform/wordMeta';
 import MemoryCurve from '@/components/MemoryCurve.vue';
 import type { WordRecord, CardRecord } from '@/data/types';
@@ -30,7 +31,8 @@ const examples = computed(() => props.word.examples ?? []);
 const collocations = computed(() => props.word.collocations ?? []);
 
 const morphForms = computed(() => morphLabels(parseExchange(props.word.exchange)));
-const roots = computed(() => lookupRoots(props.word.word));
+const roots = ref<RootLookupResult[]>([]);
+watch(() => props.word.word, (w) => { lookupRoots(w).then((r) => { roots.value = r; }); }, { immediate: true });
 const tagBadges = computed(() => parseTagBadges(props.word.tag));
 const freqBadge = computed(() => freqBucket(props.word.bnc, props.word.frq));
 
@@ -58,16 +60,19 @@ let pointerId: number | null = null;
 let startX = 0;
 let startY = 0;
 let lockedAxis: 'x' | 'y' | null = null;
+let rafId = 0;
+let pendingDx = 0;
+let swipeEl: HTMLElement | null = null;
 
 function onPointerDown(e: PointerEvent) {
   if (!props.revealed) return;
-  // 滚动条/按钮区域不拦
   const target = e.target as HTMLElement;
   if (target.closest('button, .speak, .examples, .roots, .collocations')) return;
   pointerId = e.pointerId;
   startX = e.clientX;
   startY = e.clientY;
   lockedAxis = null;
+  pendingDx = 0;
   drag.value = { active: true, dx: 0 };
 }
 
@@ -80,12 +85,23 @@ function onPointerMove(e: PointerEvent) {
     lockedAxis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
   }
   if (lockedAxis === 'y') {
-    // 让位给纵向滚动
     drag.value = { active: false, dx: 0 };
     pointerId = null;
     return;
   }
-  drag.value.dx = dx;
+  // 直接操作 DOM，跳过 Vue 响应式，避免每帧重渲染
+  pendingDx = dx;
+  if (!rafId) {
+    rafId = requestAnimationFrame(() => {
+      rafId = 0;
+      const el = swipeEl ??= document.querySelector<HTMLElement>('.swipe-wrap');
+      if (el) {
+        const rot = Math.max(-10, Math.min(10, pendingDx / 12));
+        el.style.transform = `translateX(${pendingDx}px) rotate(${rot}deg)`;
+        el.style.transition = 'none';
+      }
+    });
+  }
 }
 
 function onPointerUp(e: PointerEvent) {
@@ -94,31 +110,15 @@ function onPointerUp(e: PointerEvent) {
     pointerId = null;
     return;
   }
-  const dx = drag.value.dx;
+  const dx = pendingDx || drag.value.dx;
   drag.value = { active: false, dx: 0 };
   pointerId = null;
+  // 恢复 DOM style 让 Vue 的 transition 接管回弹
+  const el = swipeEl;
+  if (el) { el.style.transform = ''; el.style.transition = ''; }
   if (dx <= -SWIPE_THRESHOLD) emit('swipe-grade', 0);
   else if (dx >= SWIPE_THRESHOLD) emit('swipe-grade', 2);
 }
-
-const swipeStyle = computed(() => {
-  if (!drag.value.active) return {};
-  const dx = drag.value.dx;
-  // 拖动反馈：轻微旋转 + 跟随，最多 ±10deg
-  const rot = Math.max(-10, Math.min(10, dx / 12));
-  return {
-    transform: `translateX(${dx}px) rotate(${rot}deg)`,
-    transition: 'none',
-  };
-});
-
-const swipeHint = computed<'left' | 'right' | null>(() => {
-  if (!drag.value.active) return null;
-  const dx = drag.value.dx;
-  if (dx <= -SWIPE_THRESHOLD / 2) return 'left';
-  if (dx >= SWIPE_THRESHOLD / 2) return 'right';
-  return null;
-});
 </script>
 
 <template>
@@ -126,7 +126,6 @@ const swipeHint = computed<'left' | 'right' | null>(() => {
   <!-- 拖动位移挂在外层 wrapper，不能挂 .flipper（会覆盖 rotateY 翻面） -->
   <div
     class="swipe-wrap"
-    :style="swipeStyle"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
     @pointerup="onPointerUp"
@@ -138,8 +137,8 @@ const swipeHint = computed<'left' | 'right' | null>(() => {
         'fb-wrong': feedback === 'wrong',
         'fb-right': feedback === 'right',
         'fb-soft': feedback === 'soft',
-        'hint-left': swipeHint === 'left',
-        'hint-right': swipeHint === 'right',
+        'hint-left': drag.active && drag.dx <= -SWIPE_THRESHOLD / 2,
+        'hint-right': drag.active && drag.dx >= SWIPE_THRESHOLD / 2,
       }"
     >
       <div class="flipper" :class="{ flipped: revealed }">
@@ -248,12 +247,12 @@ const swipeHint = computed<'left' | 'right' | null>(() => {
     </div>
     <!-- 滑动方向角标：左红/右绿，距离越大越亮 -->
     <div
-      v-if="swipeHint === 'left'"
+      v-if="drag.active && drag.dx <= -SWIPE_THRESHOLD / 2"
       class="swipe-badge swipe-badge-left"
       :style="{ opacity: Math.min(1, Math.abs(drag.dx) / 80) }"
     >不会</div>
     <div
-      v-if="swipeHint === 'right'"
+      v-if="drag.active && drag.dx >= SWIPE_THRESHOLD / 2"
       class="swipe-badge swipe-badge-right"
       :style="{ opacity: Math.min(1, Math.abs(drag.dx) / 80) }"
     >记得</div>
@@ -271,7 +270,8 @@ const swipeHint = computed<'left' | 'right' | null>(() => {
   display: flex;
   flex: 1;
   transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-  touch-action: pan-y; /* 允许纵向滚动，横向我们自己接管 */
+  touch-action: pan-y;
+  will-change: transform;
 }
 .swipe-badge {
   position: absolute;
@@ -329,6 +329,7 @@ const swipeHint = computed<'left' | 'right' | null>(() => {
   min-height: 280px;
   transform-style: preserve-3d;
   transition: transform 0.55s cubic-bezier(0.2, 0.7, 0.3, 1);
+  will-change: transform;
 }
 .flipper.flipped {
   transform: rotateY(180deg);
