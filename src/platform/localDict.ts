@@ -1,4 +1,4 @@
-import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js';
+import type { Database, SqlJsStatic } from 'sql.js';
 import type { Translation } from '@/data/types';
 
 /**
@@ -80,7 +80,7 @@ export async function ensureLocalDict(): Promise<Database | null> {
   if (_loadPromise) return _loadPromise;
   _loadPromise = (async () => {
     try {
-      const SQL: SqlJsStatic = await initSqlJs({ locateFile: () => SQL_WASM_URL });
+      const SQL: SqlJsStatic = await (await import('sql.js')).default({ locateFile: () => SQL_WASM_URL });
       let bytes = await readCachedBytes(DB_CACHE_KEY);
       if (!bytes) {
         bytes = await fetchDbBytes();

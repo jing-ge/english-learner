@@ -20,6 +20,8 @@ export interface SeedWord {
   collocations?: Collocation[];
   audioUrl?: string;
   freqRank?: number;
+  bnc?: number;
+  frq?: number;
 }
 
 export interface SeedWordbook {
@@ -53,6 +55,8 @@ export async function loadSeedWordbook(seed: SeedWordbook): Promise<{
     audioUrl: w.audioUrl,
     wordbooks: [seed.id],
     freqRank: w.freqRank,
+    bnc: w.bnc,
+    frq: w.frq,
   }));
 
   const book: WordbookRecord = {
@@ -93,6 +97,8 @@ export async function loadSeedWordbook(seed: SeedWordbook): Promise<{
     fillIfEmpty('audioUrl', rec.audioUrl);
     fillIfEmpty('translations', rec.translations);
     fillIfEmpty('freqRank', rec.freqRank);
+    fillIfEmpty('bnc', rec.bnc);
+    fillIfEmpty('frq', rec.frq);
     return out;
   });
 

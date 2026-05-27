@@ -4,6 +4,25 @@ import type { Grade, SrsCard, CardState } from '../types';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+const DEFAULT_WEIGHTS = generatorParameters().w;
+
+/** 缓存 FSRS 实例，参数不变时复用 */
+let _cachedFsrs: ReturnType<typeof createFsrs> | null = null;
+let _cachedKey = '';
+
+function getFsrs(params: FsrsParams): ReturnType<typeof createFsrs> {
+  const key = `${params.desiredRetention}|${params.weights?.join(',') ?? ''}`;
+  if (_cachedKey === key && _cachedFsrs) return _cachedFsrs;
+  _cachedFsrs = createFsrs({
+    request_retention: params.desiredRetention,
+    w: params.weights ?? DEFAULT_WEIGHTS,
+    enable_fuzz: false,
+    enable_short_term: false,
+  });
+  _cachedKey = key;
+  return _cachedFsrs;
+}
+
 /** 4 档反馈 → FSRS Rating */
 const GRADE_TO_RATING: Record<Grade, FsrsGrade> = {
   0: Rating.Again,
@@ -69,12 +88,7 @@ export function defaultCardSrs(now: number): FsrsResult {
  * 纯函数：不读不写数据库。
  */
 export function fsrs(card: SrsCard, grade: Grade, now: number, params: FsrsParams): FsrsResult {
-  const f = createFsrs({
-    request_retention: params.desiredRetention,
-    w: params.weights ?? generatorParameters().w,
-    enable_fuzz: false,
-    enable_short_term: false,
-  });
+  const f = getFsrs(params);
 
   const fsrsCard: FsrsCard = {
     due: new Date(card.dueAt),
@@ -141,7 +155,7 @@ export function migrateSm2ToFsrs(old: {
  * R(t) = (1 + FACTOR × t / (9·S))^DECAY
  */
 export function retrievability(stability: number, elapsedDays: number, weights?: number[]): number {
-  return forgetting_curve(weights ?? generatorParameters().w, elapsedDays, stability);
+  return forgetting_curve(weights ?? DEFAULT_WEIGHTS, elapsedDays, stability);
 }
 
 export const __testing__ = { MS_PER_DAY, GRADE_TO_RATING };

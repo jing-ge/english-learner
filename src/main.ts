@@ -7,7 +7,6 @@ import { registerSW } from 'virtual:pwa-register';
 import { settingsRepo } from './data/repositories/settingsRepo';
 import { startReminder } from './platform/reminder';
 
-import 'vant/lib/index.css';
 import './styles/tokens.css';
 
 async function bootstrap() {

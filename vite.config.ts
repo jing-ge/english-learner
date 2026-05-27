@@ -1,12 +1,15 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { VitePWA } from 'vite-plugin-pwa';
+import Components from 'unplugin-vue-components/vite';
+import { VantResolver } from '@vant/auto-import-resolver';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
   base: process.env.CAPACITOR ? '/' : '/english-learner/',
   plugins: [
     vue(),
+    Components({ resolvers: [VantResolver()] }),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],

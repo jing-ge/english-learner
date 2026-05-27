@@ -78,6 +78,8 @@ export async function loadDerivedAndEnrich(byId: Map<string, { id: string; sourc
         phonetic: r.phonetic,
         translations: r.translations,
         freqRank: i + 1,
+        bnc: r.bnc,
+        frq: r.frq,
       }));
       await loadSeedWordbook({
         id: spec.id,
@@ -160,34 +162,51 @@ async function migrateSeedToDerived(
 }
 
 /**
- * 从 ECDICT 批量补充 words 表中缺失 bnc 的词条的词频数据。
- * 首次启动约数万条，用 bulkPut 一次性写入。
+ * 兜底：从 ECDICT 补充 words 表中缺失 bnc 的词条词频数据。
+ * 新用户已在 loadSeedWordbook 时顺带写入 bnc/frq，此函数仅服务老用户升级场景。
+ * 先采样检查是否有缺失，没有则直接跳过全表扫描。
  */
 async function enrichFreqFromEcdict(): Promise<void> {
   const db = getDb();
-  // 用 filter 在 IDB 层跳过已有 bnc 的记录，避免全表物化到 JS
-  const missing: { id: string; word: string }[] = [];
-  await db.words
-    .filter((w) => w.bnc === undefined || w.bnc === null)
-    .each((w) => missing.push({ id: w.id, word: w.word }));
-  if (missing.length === 0) return;
+  // 快速采样：看前 100 条是否有缺 bnc 的，没有则大概率已补全，跳过
+  const sample = await db.words.limit(100).toArray();
+  const hasMissing = sample.some((w) => w.bnc === undefined || w.bnc === null);
+  if (!hasMissing) {
+    // 再检查总数，如果词表很小（<100），也不需要补
+    const total = await db.words.count();
+    if (total <= 100) return;
+    // 大表时再抽尾部检查
+    const tail = await db.words.offset(Math.max(0, total - 100)).limit(100).toArray();
+    if (!tail.some((w) => w.bnc === undefined || w.bnc === null)) return;
+  }
 
-  const freqMap = batchLookupFreq(missing.map((m) => m.word));
-  if (freqMap.size === 0) return;
+  // 确认有缺失，分批全表扫描补全
+  const BATCH = 500;
+  let offset = 0;
 
-  const ids = missing.map((m) => m.id);
-  const existing = await db.words.bulkGet(ids);
-  const toPut = existing
-    .filter((w): w is NonNullable<typeof w> => w !== undefined)
-    .map((w) => {
-      const f = freqMap.get(w.word);
-      if (!f) return w;
-      return {
-        ...w,
-        ...(f.bnc !== undefined && (w.bnc === undefined || w.bnc === null) ? { bnc: f.bnc } : {}),
-        ...(f.frq !== undefined && (w.frq === undefined || w.frq === null) ? { frq: f.frq } : {}),
-      };
-    });
+  while (true) {
+    const batch = await db.words.offset(offset).limit(BATCH).toArray();
+    if (batch.length === 0) break;
+    offset += batch.length;
 
-  await db.words.bulkPut(toPut);
+    const missing = batch.filter((w) => w.bnc === undefined || w.bnc === null);
+    if (missing.length === 0) continue;
+
+    const freqMap = batchLookupFreq(missing.map((w) => w.word));
+    if (freqMap.size === 0) continue;
+
+    const toPut = missing
+      .map((w) => {
+        const f = freqMap.get(w.word);
+        if (!f) return null;
+        return {
+          ...w,
+          ...(f.bnc !== undefined ? { bnc: f.bnc } : {}),
+          ...(f.frq !== undefined ? { frq: f.frq } : {}),
+        };
+      })
+      .filter((w): w is NonNullable<typeof w> => w !== null);
+
+    if (toPut.length > 0) await db.words.bulkPut(toPut);
+  }
 }
