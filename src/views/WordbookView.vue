@@ -4,6 +4,7 @@ import { showToast, showSuccessToast, showFailToast, showConfirmDialog } from 'v
 import 'vant/es/toast/style';
 import 'vant/es/dialog/style';
 import { wordbookRepo } from '@/data/repositories/wordbookRepo';
+import { cardRepo } from '@/data/repositories/cardRepo';
 import { useSettingsStore } from '@/stores/settings';
 import { useProgressStore } from '@/stores/progress';
 import { waitForSeeds } from '@/data/seed';
@@ -19,6 +20,7 @@ import type { WordbookRecord } from '@/data/types';
 const settings = useSettingsStore();
 const progress = useProgressStore();
 const books = ref<WordbookRecord[]>([]);
+const learnedMap = ref<Map<string, number>>(new Map());
 const loading = ref(true);
 
 const showImport = ref(false);
@@ -40,6 +42,7 @@ onMounted(async () => {
 async function refresh() {
   await settings.load();
   books.value = await wordbookRepo.listAll();
+  learnedMap.value = await cardRepo.countLearnedByWordbook();
 }
 
 async function toggle(book: WordbookRecord, enabled: boolean) {
@@ -150,6 +153,12 @@ function initials(name: string): string {
             <span v-if="book.source === 'user'" class="user-tag">自建</span>
           </div>
           <div class="book-desc">{{ book.description || '内置词书' }}</div>
+          <div class="book-progress" v-if="book.totalCount > 0">
+            <div class="progress-bar">
+              <div class="progress-fill" :style="{ width: Math.min(100, Math.round(((learnedMap.get(book.id) ?? 0) / book.totalCount) * 100)) + '%' }"></div>
+            </div>
+            <span class="progress-text">{{ learnedMap.get(book.id) ?? 0 }}/{{ book.totalCount }}</span>
+          </div>
         </div>
         <div class="book-actions">
           <van-switch
@@ -322,6 +331,34 @@ function initials(name: string): string {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.book-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.progress-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--el-bg-soft);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #6c8eff, #1677ff);
+  transition: width 0.3s ease;
+}
+.book.active .progress-fill {
+  background: linear-gradient(90deg, #4ade80, #16a34a);
+}
+.progress-text {
+  font-size: 11px;
+  color: var(--el-text-tertiary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 .book-actions {
   display: flex;

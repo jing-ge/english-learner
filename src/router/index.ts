@@ -35,6 +35,11 @@ const routes: RouteRecordRaw[] = [
     name: 'wrongbook',
     component: () => import('@/views/WrongBookView.vue'),
   },
+  {
+    path: '/lookup',
+    name: 'lookup',
+    component: () => import('@/views/LookupView.vue'),
+  },
 ];
 
 export const router = createRouter({

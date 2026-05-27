@@ -12,6 +12,13 @@ const settings = useSettingsStore();
 const loading = ref(true);
 const stats = ref<WrongStat[]>([]);
 const wordsById = ref<Map<string, WordRecord>>(new Map());
+const detailWord = ref<WordRecord | null>(null);
+const detailVisible = ref(false);
+
+function openDetail(cardId: string) {
+  detailWord.value = wordsById.value.get(cardId) ?? null;
+  if (detailWord.value) detailVisible.value = true;
+}
 
 onMounted(async () => {
   await settings.load();
@@ -37,6 +44,10 @@ function shortMeaning(w?: WordRecord): string {
   const t = w.translations?.[0];
   if (!t) return '';
   return [t.pos, t.meaning].filter(Boolean).join(' ');
+}
+
+function showDetail(cardId: string) {
+  detailWord.value = wordsById.value.get(cardId) ?? null;
 }
 
 function startWrongStudy() {
@@ -69,6 +80,7 @@ function startWrongStudy() {
         v-for="s in stats"
         :key="s.cardId"
         class="row"
+        @click="openDetail(s.cardId)"
       >
         <div class="row-main">
           <div class="row-word">{{ wordsById.get(s.cardId)?.word ?? '' }}</div>
@@ -80,6 +92,28 @@ function startWrongStudy() {
         </div>
       </li>
     </ul>
+
+    <van-popup v-model:show="detailVisible" position="bottom" round :style="{ maxHeight: '70vh' }">
+      <div class="detail" v-if="detailWord">
+        <div class="detail-head">
+          <div class="detail-word">{{ detailWord.word }}</div>
+          <div class="detail-phonetic" v-if="detailWord.phonetic">{{ detailWord.phonetic }}</div>
+        </div>
+        <ul class="detail-translations">
+          <li v-for="(t, i) in detailWord.translations" :key="i">
+            <span v-if="t.pos" class="pos">{{ t.pos }}</span>
+            <span>{{ t.meaning }}</span>
+          </li>
+        </ul>
+        <div v-if="detailWord.examples?.length" class="detail-section">
+          <div class="detail-section-title">例句</div>
+          <div v-for="(ex, i) in detailWord.examples" :key="i" class="detail-example">
+            <div class="detail-en">{{ ex.en }}</div>
+            <div class="detail-zh" v-if="ex.zh">{{ ex.zh }}</div>
+          </div>
+        </div>
+      </div>
+    </van-popup>
   </div>
 </template>
 
@@ -183,6 +217,73 @@ function startWrongStudy() {
 .row-side-label {
   font-size: 11px;
   color: var(--el-text-tertiary);
+  margin-top: 2px;
+}
+.row { cursor: pointer; }
+.row:active { background: var(--el-bg-soft); }
+
+/* 详情弹窗 */
+.detail {
+  padding: var(--el-space-5) var(--el-space-4) calc(env(safe-area-inset-bottom) + var(--el-space-4));
+}
+.detail-head {
+  margin-bottom: var(--el-space-4);
+}
+.detail-word {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--el-text-primary);
+}
+.detail-phonetic {
+  font-size: 14px;
+  color: var(--el-text-tertiary);
+  margin-top: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.detail-translations {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--el-space-4);
+}
+.detail-translations li {
+  font-size: 15px;
+  color: var(--el-text-primary);
+  padding: 6px 0;
+  line-height: 1.5;
+}
+.pos {
+  display: inline-block;
+  color: var(--el-primary-500);
+  background: var(--el-primary-50);
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-right: 6px;
+  font-weight: 500;
+}
+.detail-section {
+  border-top: 1px solid var(--el-border-light);
+  padding-top: var(--el-space-3);
+}
+.detail-section-title {
+  font-size: 12px;
+  color: var(--el-text-tertiary);
+  font-weight: 500;
+  margin-bottom: var(--el-space-2);
+}
+.detail-example {
+  margin-bottom: var(--el-space-3);
+  padding-left: 10px;
+  border-left: 3px solid var(--el-primary-100);
+}
+.detail-en {
+  font-size: 14px;
+  color: var(--el-text-primary);
+  line-height: 1.6;
+}
+.detail-zh {
+  font-size: 13px;
+  color: var(--el-text-secondary);
   margin-top: 2px;
 }
 </style>

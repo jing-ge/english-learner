@@ -72,6 +72,9 @@ function start() {
 function goWordbook() {
   router.push({ name: 'wordbook' });
 }
+function goLookup() {
+  router.push({ name: 'lookup' });
+}
 </script>
 
 <template>
@@ -107,6 +110,10 @@ function goWordbook() {
         选择词书
         <span class="cta-sub">CET-4 · 考研 · 雅思 任选</span>
       </button>
+      <button class="lookup-link" @click="goLookup">
+        <van-icon name="search" size="16" />
+        先查个词看看
+      </button>
     </section>
 
     <!-- 正常态：进度卡 + 开始学习 -->
@@ -139,6 +146,11 @@ function goWordbook() {
           开始学习
           <span class="cta-sub">{{ todayPending }} 张待完成</span>
         </template>
+      </button>
+
+      <button class="lookup-link" @click="goLookup">
+        <van-icon name="search" size="16" />
+        查词
       </button>
     </template>
   </div>
@@ -331,5 +343,22 @@ function goWordbook() {
   font-weight: 400;
   letter-spacing: 0;
   margin-top: 4px;
+}
+.lookup-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--el-space-4);
+  background: transparent;
+  border: 1px solid var(--el-primary-300);
+  color: var(--el-primary-500);
+  border-radius: var(--el-radius-md);
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.lookup-link:active {
+  background: var(--el-primary-50);
 }
 </style>

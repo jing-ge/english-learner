@@ -184,6 +184,17 @@ async function persistEvent(event: ReviewEvent) {
 }
 
 const correctCount = computed(() => session.value?.events.filter((e) => e.grade >= 2).length ?? 0);
+const totalDurationMs = computed(() => session.value?.events.reduce((sum, e) => sum + e.durationMs, 0) ?? 0);
+const newCount = computed(() => session.value?.events.filter((e) => e.firstReviewInSession && e.nextCard.reps <= 1).length ?? 0);
+const reviewCount = computed(() => (session.value?.events.filter((e) => e.firstReviewInSession).length ?? 0) - newCount.value);
+
+function fmtDuration(ms: number): string {
+  const sec = Math.round(ms / 1000);
+  if (sec < 60) return `${sec}秒`;
+  const min = Math.floor(sec / 60);
+  const s = sec % 60;
+  return s > 0 ? `${min}分${s}秒` : `${min}分钟`;
+}
 
 const progressPct = computed(() => {
   const total = sessionStats.value.total;
@@ -296,8 +307,12 @@ function confettiStyle(i: number) {
         </div>
         <div class="done-stats" v-else>
           <div class="done-stat">
-            <div class="done-stat-num">{{ eventsCount }}</div>
-            <div class="done-stat-label">评分次数</div>
+            <div class="done-stat-num">{{ newCount }}</div>
+            <div class="done-stat-label">新学</div>
+          </div>
+          <div class="done-stat">
+            <div class="done-stat-num">{{ reviewCount }}</div>
+            <div class="done-stat-label">复习</div>
           </div>
           <div class="done-stat done-stat-hi">
             <div class="done-stat-num">{{ correctCount }}</div>
@@ -309,6 +324,9 @@ function confettiStyle(i: number) {
             </div>
             <div class="done-stat-label">准确率</div>
           </div>
+        </div>
+        <div class="done-duration" v-if="sessionStats.total > 0 && totalDurationMs > 0">
+          用时 {{ fmtDuration(totalDurationMs) }}，平均每词 {{ fmtDuration(Math.round(totalDurationMs / eventsCount)) }}
         </div>
         <button class="back-btn" @click="backHome">返回首页</button>
       </div>
@@ -532,11 +550,11 @@ function confettiStyle(i: number) {
   font-weight: 600;
 }
 
-/* 三联统计：评分 / 认识 / 准确率 */
+/* 四联统计：新学 / 复习 / 认识 / 准确率 */
 .done-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--el-space-6);
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--el-space-4);
   margin-top: var(--el-space-6);
   padding: 0 var(--el-space-4);
 }
@@ -562,6 +580,11 @@ function confettiStyle(i: number) {
   margin-top: 6px;
   font-size: 12px;
   color: var(--el-text-tertiary);
+}
+.done-duration {
+  margin-top: var(--el-space-4);
+  font-size: 13px;
+  color: var(--el-text-secondary);
 }
 @keyframes done-num-rise {
   from {

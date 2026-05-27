@@ -42,13 +42,15 @@ const highlightedExamples = computed(() =>
   })),
 );
 
-function pronounce(e: Event) {
-  e.stopPropagation();
+function pronounce(e?: Event) {
+  e?.stopPropagation();
   const accent = settings.settings.ttsAccent;
-  // 真人发音三级链：Free Dictionary audioUrl → 有道真人 → SpeechSynthesis 合成
   const url = props.word.audioUrl || youdaoTtsUrl(props.word.word, accent);
   void playAudio(url, { text: props.word.word, accent });
 }
+
+// 翻面自动发音
+watch(() => props.revealed, (v) => { if (v) pronounce(); });
 
 // ===== 滑动手势答评（仅在 revealed=true 时启用）=====
 // 左滑 → grade 0（不认识）；右滑 → grade 2（模糊/认识）。

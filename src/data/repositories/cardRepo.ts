@@ -37,6 +37,20 @@ export const cardRepo = {
     return getDb().cards.where('state').equals(state).count();
   },
 
+  /** 统计每本词书的已学卡数（state != 'new'），返回 Map<wordbookId, learnedCount> */
+  async countLearnedByWordbook(): Promise<Map<string, number>> {
+    const db = getDb();
+    const map = new Map<string, number>();
+    await db.cards
+      .filter((c) => c.state !== 'new')
+      .each((c) => {
+        for (const wb of c.wordbooks) {
+          map.set(wb, (map.get(wb) ?? 0) + 1);
+        }
+      });
+    return map;
+  },
+
   async listByState(state: CardState): Promise<CardRecord[]> {
     return getDb().cards.where('state').equals(state).toArray();
   },
